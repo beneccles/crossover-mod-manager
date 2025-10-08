@@ -1,0 +1,33 @@
+{
+  "name": "crossover-mod-manager",
+  "version": "1.0.0",
+  "description": "Nexus Mod Manager for CP2077 on Mac via Crossover",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "keywords": [
+    "nexus",
+    "mods",
+    "cyberpunk",
+    "crossover",
+    "macos"
+  ],
+  "author": "Benjamin Eccles",
+  "license": "MIT",
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite": "^7.1.9"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "1.5",
+    "@tauri-apps/cli": "1.5"
+  }
+}

@@ -1,0 +1,106 @@
+.settings {
+  height: 100%;
+  overflow-y: auto;
+  background: #242424;
+}
+
+.settings-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.settings-content h2 {
+  font-size: 1.8rem;
+  margin: 0 0 2rem 0;
+  color: #646cff;
+}
+
+.setting-section {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.setting-section h3 {
+  font-size: 1.2rem;
+  margin: 0 0 1rem 0;
+  color: #fff;
+}
+
+.setting-row {
+  margin-bottom: 1rem;
+}
+
+.setting-row:last-child {
+  margin-bottom: 0;
+}
+
+.setting-row label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #888;
+}
+
+.path-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.path-selector input {
+  flex: 1;
+  padding: 0.5rem;
+  background: #242424;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+}
+
+.path-selector input:focus {
+  outline: none;
+  border-color: #646cff;
+}
+
+.path-selector button {
+  min-width: 100px;
+}
+
+.help-text {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #888;
+  line-height: 1.4;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.save-button {
+  background: #646cff;
+  border-color: #646cff;
+  color: white;
+  min-width: 150px;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #535bf2;
+  border-color: #535bf2;
+}
+
+.save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-success {
+  color: #4caf50;
+  font-weight: 600;
+}
