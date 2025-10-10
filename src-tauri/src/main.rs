@@ -554,7 +554,28 @@ async fn handle_nxm_url(
 
     // Parse the NXM URL
     // Example: nxm://cyberpunk2077/mods/107/files/123169?key=xxx&expires=xxx&user_id=xxx
-    if let Some(captures) = regex::Regex::new(r"nxm://([^/]+)/mods/(\d+)/files/(\d+)")
+    // Or: nxm://cyberpunk2077/collections/some-collection-id
+    
+    // Check if it's a collection URL
+    if let Some(captures) = regex::Regex::new(r"nxm://([^/]+)/collections/([^/?]+)")
+        .ok()
+        .and_then(|re| re.captures(&nxm_url))
+    {
+        let game = captures.get(1).map(|m| m.as_str()).unwrap_or("unknown");
+        let collection_id = captures.get(2).map(|m| m.as_str()).unwrap_or("unknown");
+        
+        add_log(
+            format!("📦 Collection detected: {} from game: {}", collection_id, game),
+            "info".to_string(),
+            "download".to_string(),
+            state.clone(),
+        )?;
+        
+        // Handle collection download
+        return handle_collection_download(game, collection_id, state, app).await;
+    }
+    // Check if it's a single mod URL
+    else if let Some(captures) = regex::Regex::new(r"nxm://([^/]+)/mods/(\d+)/files/(\d+)")
         .ok()
         .and_then(|re| re.captures(&nxm_url))
     {
@@ -788,6 +809,194 @@ async fn handle_nxm_url(
             "system".to_string(),
             state.clone(),
         )?;
+    }
+
+    Ok(())
+}
+
+async fn handle_collection_download(
+    game: &str,
+    collection_id: &str,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    // Get API key from settings
+    let api_key = {
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings.get_settings().nexusmods_api_key.clone()
+    };
+
+    if api_key.is_empty() {
+        add_log(
+            "⚠️ NexusMods API key is not configured. Please add your API key in Settings to download collections.".to_string(),
+            "error".to_string(),
+            "download".to_string(),
+            state.clone(),
+        )?;
+        return Err("NexusMods API key is required for collections. Please configure it in Settings.".to_string());
+    }
+
+    add_log(
+        "📡 Fetching collection information from NexusMods API...".to_string(),
+        "info".to_string(),
+        "download".to_string(),
+        state.clone(),
+    )?;
+
+    // Get collection info
+    let collection_info = match nexusmods_api::get_collection_info(game, collection_id, &api_key).await {
+        Ok(info) => {
+            add_log(
+                format!("📦 Collection: {} by {} ({} mods)", info.name, info.author, info.mod_count),
+                "info".to_string(),
+                "download".to_string(),
+                state.clone(),
+            )?;
+            info
+        }
+        Err(e) => {
+            add_log(
+                format!("❌ Failed to get collection info: {}", e),
+                "error".to_string(),
+                "download".to_string(),
+                state.clone(),
+            )?;
+            return Err(format!("Failed to get collection info: {}", e));
+        }
+    };
+
+    // Get collection mods list
+    add_log(
+        "📋 Fetching collection mods list...".to_string(),
+        "info".to_string(),
+        "download".to_string(),
+        state.clone(),
+    )?;
+
+    let collection_mods = match nexusmods_api::get_collection_mods(game, collection_id, collection_info.revision_number, &api_key).await {
+        Ok(mods) => {
+            add_log(
+                format!("✓ Found {} mods in collection", mods.len()),
+                "info".to_string(),
+                "download".to_string(),
+                state.clone(),
+            )?;
+            mods
+        }
+        Err(e) => {
+            add_log(
+                format!("❌ Failed to get collection mods: {}", e),
+                "error".to_string(),
+                "download".to_string(),
+                state.clone(),
+            )?;
+            return Err(format!("Failed to get collection mods: {}", e));
+        }
+    };
+
+    // Install each mod in the collection
+    let mut installed_count = 0;
+    let mut failed_count = 0;
+    let total_mods = collection_mods.len();
+
+    for (index, collection_mod) in collection_mods.iter().enumerate() {
+        add_log(
+            format!("📦 Installing mod {}/{}: {} (ID: {}, File: {})", 
+                index + 1, total_mods, collection_mod.name, collection_mod.mod_id, collection_mod.file_id),
+            "info".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+
+        // Skip optional mods for now (could add user choice later)
+        if collection_mod.is_optional {
+            add_log(
+                "⏭️ Skipping optional mod".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            continue;
+        }
+
+        // Get download URL for this mod
+        let download_url = match nexusmods_api::get_download_url(
+            game, 
+            &collection_mod.mod_id.to_string(), 
+            &collection_mod.file_id.to_string(), 
+            &api_key
+        ).await {
+            Ok(url) => url,
+            Err(e) => {
+                add_log(
+                    format!("⚠️ Failed to get download URL for {}: {}", collection_mod.name, e),
+                    "warning".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                failed_count += 1;
+                continue;
+            }
+        };
+
+        // Install this mod
+        match install_mod_from_nxm(
+            collection_mod.name.clone(),
+            collection_mod.version.clone(),
+            "Collection Author".to_string(), // Collections don't always have individual mod authors
+            collection_mod.mod_id.to_string(),
+            collection_mod.file_id.to_string(),
+            download_url,
+            state.clone(),
+            app.clone(),
+        ).await {
+            Ok(_) => {
+                installed_count += 1;
+                add_log(
+                    format!("✅ Successfully installed: {}", collection_mod.name),
+                    "success".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+            }
+            Err(e) => {
+                failed_count += 1;
+                add_log(
+                    format!("❌ Failed to install {}: {}", collection_mod.name, e),
+                    "error".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+            }
+        }
+    }
+
+    // Final summary
+    add_log(
+        format!("🎉 Collection installation complete! Installed: {}, Failed: {}, Total: {}", 
+            installed_count, failed_count, total_mods),
+        "success".to_string(),
+        "installation".to_string(),
+        state.clone(),
+    )?;
+
+    // Emit collection-complete event to frontend
+    if let Some(window) = app.get_webview_window("main") {
+        add_log(
+            "📢 Emitting collection-complete event to frontend".to_string(),
+            "info".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        
+        let collection_summary = serde_json::json!({
+            "collection_id": collection_id,
+            "installed": installed_count,
+            "failed": failed_count,
+            "total": total_mods
+        });
+        
+        window.emit("collection-complete", &collection_summary).ok();
     }
 
     Ok(())

@@ -1,22 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import "./ModList.css";
 
-function ModList({ mods, selectedMod, onSelectMod, loading }) {
-  const testInstallation = async () => {
-    try {
-      const testModData = {
-        name: "Test Mod",
-        version: "1.0.0",
-        author: "Test Author",
-        download_url: "https://example.com/test-mod.zip",
-      };
-
-      await invoke("install_mod", { modData: testModData });
-    } catch (error) {
-      console.error("Test installation failed:", error);
-    }
-  };
-
+function ModList({ mods, selectedMod, onSelectMod, loading, onRefresh }) {
   return (
     <div className="mod-list">
       <div className="mod-list-header">
@@ -26,11 +10,12 @@ function ModList({ mods, selectedMod, onSelectMod, loading }) {
             {mods.length} mod{mods.length !== 1 ? "s" : ""}
           </span>
           <button
-            onClick={testInstallation}
-            className="test-button"
+            onClick={onRefresh}
+            className="refresh-button"
             disabled={loading}
+            title="Refresh mod list"
           >
-            🧪 Test Installation
+            🔄 Refresh
           </button>
         </div>
       </div>

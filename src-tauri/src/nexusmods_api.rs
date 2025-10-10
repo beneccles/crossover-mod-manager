@@ -14,6 +14,30 @@ struct DownloadLink {
     name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CollectionInfo {
+    pub name: String,
+    pub summary: String,
+    pub author: String,
+    pub total_downloads: u64,
+    pub revision_number: u32,
+    pub mod_count: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CollectionMod {
+    pub mod_id: u64,
+    pub file_id: u64,
+    pub name: String,
+    pub version: String,
+    pub is_optional: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CollectionDownloadResponse {
+    pub mods: Vec<CollectionMod>,
+}
+
 /// Get download URL for a mod file from NexusMods API
 ///
 /// # Arguments
@@ -175,4 +199,106 @@ pub async fn get_mod_info(
         .map_err(|e| format!("Failed to parse mod info: {}", e))?;
 
     Ok((mod_info.name, mod_info.version, mod_info.author))
+}
+
+/// Get collection information from NexusMods API
+///
+/// # Arguments
+/// * `game_domain` - Game identifier (e.g., "cyberpunk2077")
+/// * `collection_id` - The collection ID on NexusMods
+/// * `api_key` - User's NexusMods API key
+///
+/// # Returns
+/// * `Ok(CollectionInfo)` - Collection information
+/// * `Err(String)` - Error message if API call fails
+pub async fn get_collection_info(
+    game_domain: &str,
+    collection_id: &str,
+    api_key: &str,
+) -> Result<CollectionInfo, String> {
+    if api_key.is_empty() {
+        return Err(
+            "NexusMods API key is not configured. Please add your API key in Settings.".to_string(),
+        );
+    }
+
+    let url = format!(
+        "https://api.nexusmods.com/v1/games/{}/collections/{}.json",
+        game_domain, collection_id
+    );
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("apikey", api_key)
+        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get collection info: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to get collection info: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let collection_info: CollectionInfo = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse collection info: {}", e))?;
+
+    Ok(collection_info)
+}
+
+/// Get collection mods list from NexusMods API
+///
+/// # Arguments
+/// * `game_domain` - Game identifier (e.g., "cyberpunk2077")
+/// * `collection_id` - The collection ID on NexusMods
+/// * `revision_number` - The collection revision number
+/// * `api_key` - User's NexusMods API key
+///
+/// # Returns
+/// * `Ok(Vec<CollectionMod>)` - List of mods in the collection
+/// * `Err(String)` - Error message if API call fails
+pub async fn get_collection_mods(
+    game_domain: &str,
+    collection_id: &str,
+    revision_number: u32,
+    api_key: &str,
+) -> Result<Vec<CollectionMod>, String> {
+    if api_key.is_empty() {
+        return Err(
+            "NexusMods API key is not configured. Please add your API key in Settings.".to_string(),
+        );
+    }
+
+    let url = format!(
+        "https://api.nexusmods.com/v1/games/{}/collections/{}/revisions/{}/download_links.json",
+        game_domain, collection_id, revision_number
+    );
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&url)
+        .header("apikey", api_key)
+        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get collection mods: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to get collection mods: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let collection_response: CollectionDownloadResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse collection mods: {}", e))?;
+
+    Ok(collection_response.mods)
 }

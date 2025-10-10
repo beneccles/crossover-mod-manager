@@ -17,7 +17,7 @@
 .mod-list-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .mod-list-header h2 {
@@ -30,23 +30,23 @@
   color: #888;
 }
 
-.test-button {
-  padding: 0.5rem 0.75rem;
-  background: #646cff;
-  border: 1px solid #646cff;
+.refresh-button {
+  padding: 0.4rem 0.6rem;
+  background: #28a745;
+  border: 1px solid #28a745;
   border-radius: 4px;
   color: white;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.test-button:hover:not(:disabled) {
-  background: #535bf2;
-  border-color: #535bf2;
+.refresh-button:hover:not(:disabled) {
+  background: #218838;
+  border-color: #218838;
 }
 
-.test-button:disabled {
+.refresh-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

@@ -88,13 +88,16 @@ function App() {
           // Log to backend
           try {
             await invoke("add_log_entry", {
-              message: `🎉 Frontend: Received mod-installed event, refreshing mod list`,
+              message: `🎉 Frontend: Received mod-installed event for "${event.payload.name}", refreshing mod list`,
               level: "info",
               category: "installation",
             });
           } catch (e) {
             console.error("Failed to log to backend:", e);
           }
+
+          // Add a small delay to ensure backend database is updated
+          await new Promise((resolve) => setTimeout(resolve, 100));
 
           // Refresh the mod list
           await loadMods();
@@ -110,14 +113,59 @@ function App() {
     };
 
     setupModInstalledListener();
+
+    // Listen for collection-complete events
+    const setupCollectionCompleteListener = async () => {
+      try {
+        const unlisten = await listen("collection-complete", async (event) => {
+          console.log("🎉 Collection complete event received:", event.payload);
+
+          // Log to backend
+          try {
+            await invoke("add_log_entry", {
+              message: `🎉 Frontend: Collection installation complete, refreshing mod list`,
+              level: "info",
+              category: "installation",
+            });
+          } catch (e) {
+            console.error("Failed to log to backend:", e);
+          }
+
+          // Refresh the mod list one final time
+          await loadMods();
+
+          // Switch to mods tab to show all newly installed mods
+          setActiveTab("mods");
+        });
+
+        return unlisten;
+      } catch (error) {
+        console.error("Failed to setup collection-complete listener:", error);
+      }
+    };
+
+    setupCollectionCompleteListener();
   }, []);
 
   const loadMods = async () => {
     try {
+      console.log("Loading mods...");
       const modList = await invoke("get_installed_mods");
+      console.log("Loaded mods:", modList.length, "mods");
       setMods(modList);
     } catch (error) {
       console.error("Failed to load mods:", error);
+
+      // Log error to backend
+      try {
+        await invoke("add_log_entry", {
+          message: `❌ Frontend: Failed to load mods: ${error}`,
+          level: "error",
+          category: "system",
+        });
+      } catch (e) {
+        console.error("Failed to log error to backend:", e);
+      }
     }
   };
 
@@ -195,6 +243,7 @@ function App() {
               selectedMod={selectedMod}
               onSelectMod={setSelectedMod}
               loading={loading}
+              onRefresh={loadMods}
             />
             <ModDetails
               mod={selectedMod}
