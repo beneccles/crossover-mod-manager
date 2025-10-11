@@ -4,6 +4,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .mod-list-header {
@@ -13,6 +15,7 @@
   justify-content: space-between;
   align-items: center;
   background: var(--cyber-darker);
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .mod-list-actions {
@@ -79,21 +82,35 @@
 .mod-list-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem 0;
+  min-height: 0; /* Important for flex scroll */
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - styled to match cyber theme */
 .mod-list-content::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .mod-list-content::-webkit-scrollbar-track {
   background: var(--cyber-darker);
+  border-left: 1px solid var(--cyber-border);
 }
 
 .mod-list-content::-webkit-scrollbar-thumb {
   background: var(--cyber-red);
   border-radius: 0;
+  transition: background 0.2s ease;
+}
+
+.mod-list-content::-webkit-scrollbar-thumb:hover {
+  background: var(--cyber-red-bright);
+}
+
+/* Firefox scrollbar */
+.mod-list-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyber-red) var(--cyber-darker);
 }
 
 .empty-state {

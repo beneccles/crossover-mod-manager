@@ -22,13 +22,17 @@
   box-sizing: border-box;
 }
 
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
   font-family: 'Play', sans-serif;
   background: var(--cyber-darker);
   color: var(--cyber-red);
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
 }
 
 /* Cyberdeck scanlines effect */
@@ -53,11 +57,12 @@ body::before {
 
 .app {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--cyber-dark);
   position: relative;
+  overflow: hidden;
 }
 
 .app-header {
@@ -116,6 +121,7 @@ body::before {
   flex: 1;
   overflow: hidden;
   background: var(--cyber-dark);
+  min-height: 0; /* Important for flex children to scroll */
 }
 
 .mod-manager {
@@ -124,6 +130,7 @@ body::before {
   height: 100%;
   gap: 1px;
   background: var(--cyber-red);
+  overflow: hidden; /* Ensure grid children respect boundaries */
 }
 
 .loading-overlay {
