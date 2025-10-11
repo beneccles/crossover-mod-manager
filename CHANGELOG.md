@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-11
+
+### Added
+- **Comprehensive Case Sensitivity Handling** (Priority #2 - Phase 1 Complete)
+  - Automatic path normalization for all Cyberpunk 2077 game directories
+  - Case mismatch detection during mod installation
+  - Detailed warnings and auto-correction notifications
+  - Helper functions for case-insensitive file operations
+  - Summary statistics for corrected files
+  - Platform-specific tips for macOS/Crossover users
+  - Prevents "file not found" errors on case-sensitive Wine filesystems
+
+### Changed
+- Updated `determine_install_path_for_file()` to use normalized paths
+- Enhanced installation logging with case sensitivity warnings
+- Improved Wine/Crossover compatibility documentation
+
+### Technical
+- Added `normalize_game_path_component()` - normalizes directory names
+- Added `normalize_game_path()` - normalizes full file paths
+- Added `check_case_mismatch()` - detects incorrect casing
+- Added `find_path_case_insensitive()` - case-insensitive path lookup
+- Tracks case mismatch count during installation
+- Detects existing files with different casing before overwriting
+
+### Documentation
+- Updated CROSSOVER_COMPATIBILITY.md with implementation details
+- Marked Phase 1 (Critical Fixes) as COMPLETED
+- Added comprehensive examples of user experience
+
+## [1.1.0] - 2025-10-10
+
+### Added
+- **REDmod Launch Parameter Detection** (Priority #1 - Critical)
+  - Automatic detection of REDmod mods during installation
+  - Prominent warnings about `-modded` parameter requirement
+  - Platform-specific launcher instructions (GOG/Steam/Epic)
+  - Clear guidance to prevent silent mod failures
+
+- **Duplicate Mod Detection**
+  - Check for exact same mod and file version
+  - Detect different versions of same mod
+  - Warn about potential name conflicts
+  - Prevent wasted downloads and installations
+
+- **RED4ext Support Improvements**
+  - Fixed version.dll placement (game root, not bin/x64/)
+  - Enhanced file detection and logging
+  - Comprehensive Crossover setup documentation
+  - Wine DLL configuration guidance
+
+### Documentation
+- Created CROSSOVER_COMPATIBILITY.md guide
+- Created RED4EXT_COMPATIBILITY.md guide
+- Documented 12 potential Crossover/Wine issues
+- Added 3-phase implementation roadmap
+
 ## [1.0.0] - 2025-01-XX
 
 ### Added
