@@ -113,6 +113,7 @@ impl ModManager {
         })
     }
 
+    #[allow(dead_code)]
     pub async fn install_mod(
         &mut self,
         mod_data: serde_json::Value,
@@ -192,7 +193,7 @@ impl ModManager {
 
         let mod_info = self.mods[mod_index].clone();
         let mod_name = mod_info.name.clone();
-        let total_files = mod_info.files.len();
+        let _total_files = mod_info.files.len();
 
         let mut removed_files = Vec::new();
         let mut failed_files = Vec::new();
@@ -217,6 +218,7 @@ impl ModManager {
         Ok((mod_name, removed_files, failed_files))
     }
 
+    #[allow(dead_code)]
     async fn download_mod(&self, url: &str) -> Result<PathBuf, String> {
         let temp_dir = std::env::temp_dir();
         let filename = format!("mod_{}.zip", uuid::Uuid::new_v4());
@@ -236,6 +238,7 @@ impl ModManager {
         Ok(file_path)
     }
 
+    #[allow(dead_code)]
     fn extract_mod(&self, archive_path: &Path, _game_path: &str) -> Result<PathBuf, String> {
         let temp_dir = std::env::temp_dir();
         let extract_dir = temp_dir.join(format!("mod_extract_{}", uuid::Uuid::new_v4()));
@@ -272,6 +275,7 @@ impl ModManager {
         Ok(extract_dir)
     }
 
+    #[allow(dead_code)]
     fn install_files(&self, extracted_dir: &Path, game_path: &str) -> Result<Vec<String>, String> {
         let game_dir = Path::new(game_path);
         if !game_dir.exists() {
@@ -314,6 +318,7 @@ impl ModManager {
         Ok(installed_files)
     }
 
+    #[allow(dead_code)]
     fn determine_install_path(
         &self,
         game_dir: &Path,

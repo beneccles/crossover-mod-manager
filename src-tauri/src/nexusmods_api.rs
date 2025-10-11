@@ -1,6 +1,7 @@
 use reqwest;
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 struct NexusModsFile {
     #[serde(rename = "URI")]
@@ -121,6 +122,7 @@ pub async fn get_download_url(
 /// # Returns
 /// * `Ok(bool)` - true if API key is valid
 /// * `Err(String)` - Error message if validation fails
+#[allow(dead_code)]
 pub async fn validate_api_key(api_key: &str) -> Result<bool, String> {
     if api_key.is_empty() {
         return Err("API key is empty".to_string());

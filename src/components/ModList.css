@@ -89,22 +89,24 @@
 
 /* Custom scrollbar - styled to match cyber theme */
 .mod-list-content::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 .mod-list-content::-webkit-scrollbar-track {
   background: var(--cyber-darker);
-  border-left: 1px solid var(--cyber-border);
+  border-left: 2px solid var(--cyber-red);
 }
 
 .mod-list-content::-webkit-scrollbar-thumb {
   background: var(--cyber-red);
   border-radius: 0;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 0 6px rgba(255, 0, 64, 0.5);
 }
 
 .mod-list-content::-webkit-scrollbar-thumb:hover {
   background: var(--cyber-red-bright);
+  box-shadow: 0 0 10px rgba(255, 0, 64, 0.8);
 }
 
 /* Firefox scrollbar */

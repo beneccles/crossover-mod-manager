@@ -1041,6 +1041,7 @@ fn is_valid_cyberpunk_installation(path: &std::path::Path) -> bool {
     false
 }
 
+#[allow(unused_assignments)]
 #[tauri::command]
 async fn install_mod_from_nxm(
     mod_name: String,
@@ -1057,7 +1058,7 @@ async fn install_mod_from_nxm(
     use std::path::Path;
     use walkdir::WalkDir;
 
-    // Variables for cleanup
+    // Variables for cleanup (used throughout the function for error handling)
     let mut archive_path: Option<std::path::PathBuf> = None;
     let mut extract_dir: Option<std::path::PathBuf> = None;
 
