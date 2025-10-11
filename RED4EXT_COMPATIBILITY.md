@@ -11,6 +11,7 @@ RED4ext is a native code extension framework for Cyberpunk 2077 that allows adva
 ### ✅ Good News: RED4ext Works on Crossover (With Setup)
 
 RED4ext can successfully run on macOS through Crossover if you:
+
 - Install Visual C++ Redistributables in the bottle
 - Configure Wine to Windows 10 mode
 - Set proper DLL overrides for `version.dll`
@@ -112,6 +113,7 @@ RED4ext CAN work on Crossover with proper setup, though it's more complex than o
    - `red4ext/` folder → Game root directory
 
 **Expected Structure**:
+
 ```
 Cyberpunk 2077/
 ├── bin/
@@ -143,13 +145,15 @@ Cyberpunk 2077/
 RED4ext requires Visual C++ Runtime libraries:
 
 **Option A - Using CrossOver's Built-in Installer** (Recommended):
+
 ```
-CrossOver → Bottle → Install Software → 
-Search for "Visual C++" → 
+CrossOver → Bottle → Install Software →
+Search for "Visual C++" →
 Install "Microsoft Visual C++ 2019 Redistributable (x64)"
 ```
 
 **Option B - Using Winetricks**:
+
 ```bash
 # If you have Winetricks installed
 winetricks vcrun2019
@@ -167,6 +171,7 @@ winetricks vcrun2022
    - ❌ Error messages indicating what failed
 
 **Example Success Log**:
+
 ```
 [2025-10-10 14:30:01] RED4ext (v1.xx.x) loaded
 [2025-10-10 14:30:01] Cyberpunk 2077 v2.x detected
@@ -185,21 +190,25 @@ Once RED4ext core is working, you can install plugins:
 #### Common macOS/Crossover Issues
 
 **Issue**: RED4ext doesn't load, no logs appear
+
 - **Solution**: Install vcrun2019 or vcrun2022 in the bottle
 - **Solution**: Verify `version.dll` is in the game root directory (not in `bin/x64/`)
 - **Solution**: Check bottle is set to Windows 10
 
 **Issue**: Game crashes on startup after installing RED4ext
+
 - **Solution**: Check RED4ext version matches your game version
 - **Solution**: Try removing all plugins and test RED4ext core alone
 - **Solution**: Install newer Visual C++ Redistributables
 
 **Issue**: RED4ext loads but plugins don't work
+
 - **Solution**: Check plugin compatibility with your RED4ext version
 - **Solution**: Verify plugin files are in `red4ext/plugins/` (not in subfolders)
 - **Solution**: Check `red4ext/logs/` for plugin-specific errors
 
 **Issue**: Permission errors in logs
+
 - **Solution**: Ensure the game directory has write permissions
 - **Solution**: Try running CrossOver with full disk access in macOS settings
 
@@ -212,6 +221,7 @@ Once RED4ext core is working, you can install plugins:
 #### When to Use Alternatives
 
 Consider using alternatives if:
+
 - ❌ RED4ext consistently crashes your game
 - ❌ You need multiple complex RED4ext plugins
 - ❌ The mod you want has Redscript or CET alternatives

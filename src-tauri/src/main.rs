@@ -1328,24 +1328,25 @@ async fn install_mod_from_nxm(
                 is_redmod = true;
             }
             
-            // Check if this is Cyber Engine Tweaks (has cyber_engine_tweaks.asi)
+            // Check if this is Cyber Engine Tweaks (has cyber_engine_tweaks.asi or version.dll in bin/x64)
             if path_str.contains("cyber_engine_tweaks.asi") || 
                (path_str.contains("bin/x64") && path_str.ends_with("version.dll")) {
                 is_cet = true;
             }
             
-            // Check if this is RED4ext
+            // Check if this is RED4ext (has red4ext.dll or version.dll in root - not in bin/x64)
             if path_str.contains("red4ext.dll") || 
                path_str.contains("red4ext") ||
-               path_str.ends_with("red4ext.dll") {
+               path_str.ends_with("red4ext.dll") ||
+               (path_str.ends_with("version.dll") && !path_str.contains("bin/") && !path_str.contains("bin\\")) {
                 is_red4ext = true;
             }
             
             // Determine installation path based on file type
             let install_path = determine_install_path_for_file(game_dir, relative_path)?;
             
-            // Log file placement for debugging
-            if install_count % 10 == 0 || path_str.contains("red4ext") {
+            // Log file placement for debugging (especially for RED4ext files)
+            if install_count % 10 == 0 || path_str.contains("red4ext") || path_str.ends_with("version.dll") {
                 add_log(
                     format!("📁 Installing: {} → {}", 
                         relative_path.display(), 
@@ -1526,6 +1527,12 @@ async fn install_mod_from_nxm(
     if is_red4ext {
         add_log(
             "🔴 RED4ext detected! This is a native code extension framework.".to_string(),
+            "info".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        add_log(
+            "📋 RED4ext file placement: version.dll → Game Root | RED4ext.dll → bin/x64/ | Plugins → red4ext/plugins/".to_string(),
             "info".to_string(),
             "installation".to_string(),
             state.clone(),
@@ -1786,6 +1793,14 @@ fn determine_install_path_for_file(
         let original_name = relative_path.file_name().unwrap().to_string_lossy();
         println!("🔴 Detected RED4ext core DLL: {} → bin/x64/", original_name);
         return Ok(game_dir.join("bin").join("x64").join(original_name.as_ref()));
+    }
+    
+    // Special handling for version.dll (RED4ext loader)
+    if file_name == "version.dll" {
+        // version.dll MUST go in game root directory, not bin/x64/
+        let original_name = relative_path.file_name().unwrap().to_string_lossy();
+        println!("🔴 Detected RED4ext loader (version.dll) → Game root directory");
+        return Ok(game_dir.join(original_name.as_ref()));
     }
     
     // Handle RED4ext configuration and other files
