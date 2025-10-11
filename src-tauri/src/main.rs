@@ -1535,31 +1535,55 @@ async fn install_mod_from_nxm(
         #[cfg(target_os = "macos")]
         {
             add_log(
-                "⚠️ CRITICAL: RED4ext may not work reliably under Crossover/Wine!".to_string(),
+                "⚠️ RED4ext requires special setup on Crossover/Wine".to_string(),
                 "warning".to_string(),
                 "installation".to_string(),
                 state.clone(),
             )?;
             add_log(
-                "❌ RED4ext uses advanced native code injection that often fails in Wine environments.".to_string(),
-                "warning".to_string(),
-                "installation".to_string(),
-                state.clone(),
-            )?;
-            add_log(
-                "💡 Alternative: Consider using Redscript or CET-based mods instead for better compatibility.".to_string(),
+                "✅ Good news: RED4ext CAN work on Crossover with proper configuration!".to_string(),
                 "info".to_string(),
                 "installation".to_string(),
                 state.clone(),
             )?;
             add_log(
-                "🔧 If you want to try anyway: Ensure all Visual C++ Redistributables are installed in the bottle.".to_string(),
+                "📋 Required setup steps:".to_string(),
                 "info".to_string(),
                 "installation".to_string(),
                 state.clone(),
             )?;
             add_log(
-                "📖 For detailed troubleshooting, see RED4EXT_COMPATIBILITY.md in the app directory.".to_string(),
+                "  1. Set bottle to Windows 10 (winecfg → Applications → Windows Version)".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "  2. Add 'version' library override (winecfg → Libraries → version → Native then Builtin)".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "  3. Install Visual C++ 2019/2022 Redistributables in the bottle".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "  4. Verify version.dll is in game root (not bin/x64/)".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "� Alternative: Redscript or CET-based mods are easier to set up if available.".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "📖 Full setup guide: See RED4EXT_COMPATIBILITY.md for detailed instructions.".to_string(),
                 "info".to_string(),
                 "installation".to_string(),
                 state.clone(),
