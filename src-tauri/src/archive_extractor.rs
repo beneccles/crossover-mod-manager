@@ -31,76 +31,38 @@ impl ArchiveExtractor {
 
     /// Detect archive type by reading file magic bytes (more reliable than extension)
     pub fn detect_archive_type(archive_path: &Path) -> ArchiveType {
-        // Debug: Print file path and extension
-        let extension = archive_path.extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("none");
-        eprintln!("DEBUG: Detecting archive type for: {:?}", archive_path);
-        eprintln!("DEBUG: File extension: {}", extension);
-        
         // Try to read the first few bytes to detect the actual format
         if let Ok(mut file) = fs::File::open(archive_path) {
             let mut magic = [0u8; 8];
-            if let Ok(bytes_read) = std::io::Read::read(&mut file, &mut magic) {
-                // Debug: Print magic bytes
-                eprintln!("DEBUG: Magic bytes ({} bytes): {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X} {:02X}",
-                    bytes_read,
-                    magic[0], magic[1], magic[2], magic[3],
-                    magic[4], magic[5], magic[6], magic[7]);
-                
+            if let Ok(_) = std::io::Read::read(&mut file, &mut magic) {
                 // Check magic bytes for each format
                 // ZIP: 50 4B 03 04 or 50 4B 05 06 (empty archive) or 50 4B 07 08 (spanned)
                 if magic[0] == 0x50 && magic[1] == 0x4B && 
                    (magic[2] == 0x03 || magic[2] == 0x05 || magic[2] == 0x07) {
-                    eprintln!("DEBUG: Detected as ZIP by magic bytes");
                     return ArchiveType::Zip;
                 }
                 
                 // 7z: 37 7A BC AF 27 1C
                 if magic[0] == 0x37 && magic[1] == 0x7A && magic[2] == 0xBC && 
                    magic[3] == 0xAF && magic[4] == 0x27 && magic[5] == 0x1C {
-                    eprintln!("DEBUG: Detected as 7z by magic bytes");
                     return ArchiveType::SevenZ;
                 }
                 
                 // RAR: 52 61 72 21 1A 07 (RAR 1.5+) or 52 61 72 21 1A 07 01 00 (RAR 5.0+)
                 if magic[0] == 0x52 && magic[1] == 0x61 && magic[2] == 0x72 && 
                    magic[3] == 0x21 && magic[4] == 0x1A && magic[5] == 0x07 {
-                    eprintln!("DEBUG: Detected as RAR by magic bytes");
                     return ArchiveType::Rar;
                 }
-                
-                eprintln!("DEBUG: Magic bytes did not match any known format, falling back to extension");
-            } else {
-                eprintln!("DEBUG: Failed to read magic bytes");
             }
-        } else {
-            eprintln!("DEBUG: Failed to open file for magic byte detection");
         }
         
         // Fallback to extension-based detection if magic bytes don't match
-        eprintln!("DEBUG: Using extension-based detection");
         match archive_path.extension().and_then(|s| s.to_str()) {
-            Some("zip") => {
-                eprintln!("DEBUG: Detected as ZIP by extension");
-                ArchiveType::Zip
-            },
-            Some("7z") => {
-                eprintln!("DEBUG: Detected as 7z by extension");
-                ArchiveType::SevenZ
-            },
-            Some("rar") => {
-                eprintln!("DEBUG: Detected as RAR by extension");
-                ArchiveType::Rar
-            },
-            Some(ext) => {
-                eprintln!("DEBUG: Unsupported extension: {}", ext);
-                ArchiveType::Unsupported(ext.to_string())
-            },
-            None => {
-                eprintln!("DEBUG: No extension found");
-                ArchiveType::Unsupported("unknown".to_string())
-            },
+            Some("zip") => ArchiveType::Zip,
+            Some("7z") => ArchiveType::SevenZ,
+            Some("rar") => ArchiveType::Rar,
+            Some(ext) => ArchiveType::Unsupported(ext.to_string()),
+            None => ArchiveType::Unsupported("unknown".to_string()),
         }
     }
 

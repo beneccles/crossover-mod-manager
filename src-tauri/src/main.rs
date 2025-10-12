@@ -1273,10 +1273,44 @@ async fn install_mod_from_nxm(
     let mut is_cet = false;
     let mut is_red4ext = false;
     let mut case_mismatch_count = 0;
+    let mut symlink_count = 0;
+    let mut symlinks_detected: Vec<(String, Option<String>)> = Vec::new(); // (symlink_path, target)
 
     // Walk through extracted files and install them
     for entry in WalkDir::new(&temp_extract_dir).into_iter().filter_map(|e| e.ok()) {
-        if entry.file_type().is_file() {
+        // Check if entry is a symlink (before checking is_file)
+        let is_symlink = entry.file_type().is_symlink();
+        
+        if entry.file_type().is_file() || is_symlink {
+            let relative_path = entry.path().strip_prefix(&temp_extract_dir).map_err(|e| e.to_string())?;
+            
+            // Handle symlinks specially
+            if is_symlink {
+                symlink_count += 1;
+                let symlink_path = relative_path.to_string_lossy().to_string();
+                
+                // Try to read the symlink target
+                let target = match std::fs::read_link(entry.path()) {
+                    Ok(target_path) => Some(target_path.to_string_lossy().to_string()),
+                    Err(_) => None,
+                };
+                
+                symlinks_detected.push((symlink_path.clone(), target.clone()));
+                
+                add_log(
+                    format!("🔗 Symlink detected: {}{}", 
+                        symlink_path,
+                        target.as_ref().map(|t| format!(" → {}", t)).unwrap_or_default()
+                    ),
+                    "warning".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                
+                // Skip symlink - we'll handle it after the loop
+                continue;
+            }
+            
             let relative_path = entry.path().strip_prefix(&temp_extract_dir).map_err(|e| e.to_string())?;
             
             // Check if this is a REDmod (has info.json in mods/ folder)
@@ -1408,6 +1442,192 @@ async fn install_mod_from_nxm(
         "installation".to_string(),
         state.clone(),
     )?;
+    
+    // Check for file conflicts with other installed mods
+    {
+        let manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+        let conflicts = manager.check_file_conflicts(&installed_files);
+        
+        if !conflicts.is_empty() {
+            add_log(
+                "⚠️ File Conflict Detection".to_string(),
+                "warning".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            
+            let mut archive_conflicts = Vec::new();
+            let mut other_conflicts = Vec::new();
+            
+            for (file_path, conflict_list) in &conflicts {
+                if file_path.ends_with(".archive") {
+                    archive_conflicts.push((file_path, conflict_list));
+                } else {
+                    other_conflicts.push((file_path, conflict_list));
+                }
+            }
+            
+            // Report archive conflicts with load order information
+            if !archive_conflicts.is_empty() {
+                add_log(
+                    format!("📦 {} .archive file(s) will override existing mod archives:", archive_conflicts.len()),
+                    "warning".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                
+                for (file_path, conflict_list) in archive_conflicts {
+                    for conflict in conflict_list.iter() {
+                        let filename = std::path::Path::new(file_path)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+                        add_log(
+                            format!("  • '{}' was previously installed by '{}'", filename, conflict.mod_name),
+                            "warning".to_string(),
+                            "installation".to_string(),
+                            state.clone(),
+                        )?;
+                    }
+                }
+                
+                add_log(
+                    "ℹ️  Archive Load Order: Cyberpunk 2077 loads .archive files alphabetically.".to_string(),
+                    "info".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                add_log(
+                    "💡 The LAST loaded archive wins if multiple mods modify the same assets.".to_string(),
+                    "info".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                add_log(
+                    "🔧 To control load order, you can rename archives:".to_string(),
+                    "info".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                add_log(
+                    "   - Prefix with '0-' to load first (e.g., '0-basegame_textures.archive')".to_string(),
+                    "info".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                add_log(
+                    "   - Prefix with 'z-' to load last (e.g., 'z-basegame_final.archive')".to_string(),
+                    "info".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+            }
+            
+            // Report other file conflicts
+            if !other_conflicts.is_empty() {
+                add_log(
+                    format!("📄 {} non-archive file(s) replaced from other mods:", other_conflicts.len()),
+                    "warning".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+                
+                for (file_path, conflict_list) in &other_conflicts {
+                    for conflict in conflict_list.iter() {
+                        let filename = std::path::Path::new(file_path)
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+                        add_log(
+                            format!("  • '{}' from '{}'", filename, conflict.mod_name),
+                            "warning".to_string(),
+                            "installation".to_string(),
+                            state.clone(),
+                        )?;
+                    }
+                }
+                
+                add_log(
+                    "⚠️  The previous mod's files have been overwritten. Uninstalling this mod won't restore them.".to_string(),
+                    "warning".to_string(),
+                    "installation".to_string(),
+                    state.clone(),
+                )?;
+            }
+        }
+    }
+    
+    // Display symlink warning if any were detected
+    if symlink_count > 0 {
+        add_log(
+            "🔗 Symlink Detection Warning".to_string(),
+            "warning".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        add_log(
+            format!("⚠️  {} symbolic link(s) detected in this mod", symlink_count),
+            "warning".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        
+        // Show details of detected symlinks
+        for (symlink_path, target) in &symlinks_detected {
+            let detail = match target {
+                Some(t) => format!("  • {} → {}", symlink_path, t),
+                None => format!("  • {}", symlink_path),
+            };
+            add_log(
+                detail,
+                "warning".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+        }
+        
+        add_log(
+            "⚠️  Symlinks may not work correctly in Wine/Crossover environments".to_string(),
+            "warning".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        add_log(
+            "ℹ️  Symlinks were NOT installed (skipped for compatibility)".to_string(),
+            "info".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+        
+        #[cfg(target_os = "macos")]
+        {
+            add_log(
+                "💡 macOS/Crossover Tip: Symlinks are rarely used in Cyberpunk 2077 mods".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "   If the mod doesn't work, it may rely on symlinks. Check for alternative versions.".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "   Most mods on NexusMods are packaged without symlinks for compatibility.".to_string(),
+                "info".to_string(),
+                "installation".to_string(),
+                state.clone(),
+            )?;
+        }
+        
+        add_log(
+            format!("📊 Symlink Summary: {} symlink(s) detected and skipped", symlink_count),
+            "info".to_string(),
+            "installation".to_string(),
+            state.clone(),
+        )?;
+    }
     
     // Display case sensitivity summary if any issues were detected
     if case_mismatch_count > 0 {
@@ -1682,6 +1902,8 @@ async fn install_mod_from_nxm(
         file_id: Some(file_id.clone()),
         enabled: true,
         files: installed_files.clone(),
+        file_conflicts: std::collections::HashMap::new(), // Will be populated if conflicts exist
+        installed_at: Some(chrono::Utc::now().to_rfc3339()),
     };
 
     {

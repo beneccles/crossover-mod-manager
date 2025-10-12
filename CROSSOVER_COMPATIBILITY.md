@@ -194,7 +194,42 @@ Additional Launch Arguments: -modded
 - Symlinks created by mods might not work correctly in Wine
 - Game might not follow symlinks properly
 
-**Current Status**: ❌ Not addressed
+**Current Status**: ✅ **IMPLEMENTED** - Automatic symlink detection with user warnings
+
+**Implementation Details**:
+
+- ✅ **Symlink Detection**: Automatically detects symbolic links during mod installation
+
+  - Checks `file_type().is_symlink()` for each file entry
+  - Reads symlink targets using `std::fs::read_link()`
+  - Tracks all detected symlinks with paths and targets
+
+- ✅ **User Warnings**: Comprehensive warnings about symlink compatibility
+
+  - Lists all detected symlinks with their target paths
+  - Explains Wine/Crossover compatibility issues
+  - Provides platform-specific advice for macOS users
+  - Summary statistics at end of installation
+
+- ✅ **Automatic Handling**: Symlinks are skipped for compatibility
+  - Symlinks are NOT installed (compatibility protection)
+  - Installation continues normally for other files
+  - User is informed that symlinks were skipped
+
+**What Users See**:
+
+```
+🔗 Symlink Detection Warning
+⚠️  2 symbolic link(s) detected in this mod
+  • scripts/init.lua → ../common/init.lua
+  • bin/plugin.dll → /shared/plugins/plugin.dll
+⚠️  Symlinks may not work correctly in Wine/Crossover environments
+ℹ️  Symlinks were NOT installed (skipped for compatibility)
+💡 macOS/Crossover Tip: Symlinks are rarely used in Cyberpunk 2077 mods
+   If the mod doesn't work, it may rely on symlinks. Check for alternative versions.
+   Most mods on NexusMods are packaged without symlinks for compatibility.
+📊 Symlink Summary: 2 symlink(s) detected and skipped
+```
 
 **Solutions**:
 

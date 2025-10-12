@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,25 @@ pub struct ModInfo {
     pub file_id: Option<String>,
     pub enabled: bool,
     pub files: Vec<String>,
+    
+    // File ownership tracking for conflict detection
+    // Map of relative file path -> conflict info
+    #[serde(default)]
+    pub file_conflicts: HashMap<String, FileConflictInfo>,
+    
+    // Install timestamp for determining which mod was installed first
+    #[serde(default)]
+    pub installed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileConflictInfo {
+    // The mod ID that originally owned this file (if any)
+    pub previous_owner: Option<String>,
+    // The mod name for user-friendly display
+    pub previous_owner_name: Option<String>,
+    // Whether this is an archive file (important for load order)
+    pub is_archive: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -170,6 +190,8 @@ impl ModManager {
                 .map(String::from),
             enabled: true,
             files: installed_files,
+            file_conflicts: HashMap::new(),
+            installed_at: Some(chrono::Utc::now().to_rfc3339()),
         };
 
         self.mods.push(mod_info);
@@ -353,4 +375,123 @@ impl ModManager {
                 .join(relative_path.file_name().unwrap()))
         }
     }
+
+    /// Check for file conflicts with already installed mods
+    /// Returns a map of file paths to conflicting mod info
+    pub fn check_file_conflicts(&self, files_to_install: &[String]) -> HashMap<String, Vec<ConflictDetails>> {
+        let mut conflicts: HashMap<String, Vec<ConflictDetails>> = HashMap::new();
+
+        for file_path in files_to_install {
+            // Check if this file is already installed by another mod
+            for existing_mod in &self.mods {
+                if existing_mod.files.contains(file_path) {
+                    conflicts
+                        .entry(file_path.clone())
+                        .or_insert_with(Vec::new)
+                        .push(ConflictDetails {
+                            mod_id: existing_mod.id.clone(),
+                            mod_name: existing_mod.name.clone(),
+                            mod_version: existing_mod.version.clone(),
+                            is_archive: file_path.ends_with(".archive"),
+                        });
+                }
+            }
+        }
+
+        conflicts
+    }
+
+    /// Analyze archive file load order conflicts
+    /// Returns warnings about which archive will override which
+    pub fn analyze_archive_load_order(&self, archive_files: &[String]) -> Vec<LoadOrderWarning> {
+        let mut warnings = Vec::new();
+        
+        // Get all installed archive files from all mods
+        let mut all_archives: Vec<(String, String, String)> = Vec::new(); // (filename, mod_name, mod_id)
+        
+        for existing_mod in &self.mods {
+            for file in &existing_mod.files {
+                if file.ends_with(".archive") {
+                    if let Some(filename) = Path::new(file).file_name() {
+                        all_archives.push((
+                            filename.to_string_lossy().to_string(),
+                            existing_mod.name.clone(),
+                            existing_mod.id.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+        
+        // Add new archives being installed
+        for file in archive_files {
+            if let Some(filename) = Path::new(file).file_name() {
+                all_archives.push((
+                    filename.to_string_lossy().to_string(),
+                    "NEW MOD".to_string(),
+                    "new".to_string(),
+                ));
+            }
+        }
+        
+        // Sort archives alphabetically (this is how CP2077 loads them)
+        all_archives.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        // Check for archives that might conflict
+        // Group by basegame_ prefix or other common patterns
+        let mut basegame_archives = Vec::new();
+        let mut patch_archives = Vec::new();
+        
+        for (filename, mod_name, mod_id) in &all_archives {
+            if filename.starts_with("basegame_") || filename.starts_with("basegame-") {
+                basegame_archives.push((filename.clone(), mod_name.clone(), mod_id.clone()));
+            } else if filename.starts_with("patch_") || filename.starts_with("patch-") {
+                patch_archives.push((filename.clone(), mod_name.clone(), mod_id.clone()));
+            }
+        }
+        
+        // Warn if multiple mods modify basegame
+        if basegame_archives.len() > 1 {
+            let last_loaded = basegame_archives.last().unwrap();
+            warnings.push(LoadOrderWarning {
+                warning_type: LoadOrderWarningType::MultipleBasegameArchives,
+                message: format!(
+                    "Multiple mods modify basegame archives. '{}' will load last and override others.",
+                    last_loaded.0
+                ),
+                affected_archives: basegame_archives.iter().map(|a| a.0.clone()).collect(),
+                suggestion: Some(
+                    "Consider renaming archives to control load order:\n\
+                     - Prefix with '0-' to load first (e.g., '0-basegame_textures.archive')\n\
+                     - Prefix with 'z-' to load last (e.g., 'z-basegame_final.archive')"
+                        .to_string(),
+                ),
+            });
+        }
+        
+        warnings
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictDetails {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub mod_version: String,
+    pub is_archive: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadOrderWarning {
+    pub warning_type: LoadOrderWarningType,
+    pub message: String,
+    pub affected_archives: Vec<String>,
+    pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum LoadOrderWarningType {
+    MultipleBasegameArchives,
+    MultiplePatchArchives,
+    ConflictingMods,
 }

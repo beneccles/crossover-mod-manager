@@ -16,7 +16,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic fallback to built-in Rust extractors
   - Installation hints for optimal performance
   - Extraction method logging and reporting
+  - Magic byte detection for accurate format identification
   - Now supports 99% of NexusMods archive formats (ZIP/7z/RAR)
+- **Archive Load Order Management & Conflict Detection** (Priority #3 - Phase 2)
+  - Intelligent file conflict detection during installation
+  - Warns when multiple mods modify the same files
+  - Special handling for .archive files (load order awareness)
+  - Explains which mod will override which based on alphabetical load order
+  - Suggests file renaming strategies to control load order (0-, z- prefixes)
+  - Tracks file ownership across all installed mods
+  - Categorizes conflicts (archive vs non-archive files)
+  - Prevents silent file overwrites between mods
+- **Symlink Detection & Warning System** (Priority #4 - Phase 2)
+  - Automatic detection of symbolic links during mod installation
+  - Warns users about Wine/Crossover symlink compatibility issues
+  - Lists all detected symlinks with their targets
+  - Symlinks are skipped during installation for compatibility
+  - Platform-specific advice for macOS/Crossover users
+  - Prevents symlink-related mod failures
 - **Archive Extraction Documentation**
   - New ARCHIVE_SUPPORT.md with comprehensive technical details
   - Performance comparisons between extraction methods
@@ -31,15 +48,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical
 
-- Created `archive_extractor.rs` module (326 lines)
-- Added `ArchiveType` enum (Zip, SevenZ, Rar, Unsupported)
-- Added `ExtractionMethod` enum for tracking extraction methods
-- Added `detect_archive_type()` - file extension-based detection
-- Added `extract_7z_hybrid()` - system p7zip with sevenz-rust fallback
-- Added `extract_rar_hybrid()` - system unrar with unrar crate fallback
-- Added `check_command_exists()` - system tool availability checking
-- Added `get_installation_hints()` - user guidance for missing tools
-- Dependencies: sevenz-rust 0.6, unrar 0.5
+- Created `archive_extractor.rs` module (361 lines)
+  - Added `ArchiveType` enum (Zip, SevenZ, Rar, Unsupported)
+  - Added `ExtractionMethod` enum for tracking extraction methods
+  - Added `detect_archive_type()` - magic byte detection with extension fallback
+  - Added `extract_7z_hybrid()` - system p7zip with sevenz-rust fallback
+  - Added `extract_rar_hybrid()` - system unrar with unrar crate fallback
+  - Added `check_command_exists()` - system tool availability checking
+  - Added `get_installation_hints()` - user guidance for missing tools
+  - Dependencies: sevenz-rust 0.6, unrar 0.5
+- Enhanced `mod_manager.rs` with conflict detection
+  - Added `FileConflictInfo` struct for tracking file ownership
+  - Added `ConflictDetails` struct for reporting conflicts
+  - Added `LoadOrderWarning` struct for archive load order issues
+  - Added `check_file_conflicts()` - detect file overlaps between mods
+  - Added `analyze_archive_load_order()` - detect archive conflicts
+  - Extended `ModInfo` with `file_conflicts` and `installed_at` fields
+  - Added timestamp tracking for installation order
+- Updated `main.rs` installation flow
+  - Integrated conflict detection before mod registration
+  - Added detailed conflict warnings for users
+  - Separate reporting for archive vs non-archive conflicts
+  - Load order education and renaming suggestions
+  - Added symlink detection during file iteration
+  - Symlink tracking with path and target information
+  - Comprehensive symlink warnings with platform-specific advice
+  - Automatic symlink skipping for Wine/Crossover compatibility
 
 ### Performance
 
