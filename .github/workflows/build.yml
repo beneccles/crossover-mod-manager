@@ -2,115 +2,115 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build frontend
-      run: npm run build
-    
-    - name: Upload dist artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: frontend-dist
-        path: dist/
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
 
   check-rust:
     name: Check Rust Code
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo index
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo build
-      uses: actions/cache@v4
-      with:
-        path: src-tauri/target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev \
-          build-essential \
-          curl \
-          wget \
-          file \
-          libssl-dev \
-          libgtk-3-dev \
-          libayatana-appindicator3-dev \
-          librsvg2-dev
-    
-    - name: Check Rust code
-      working-directory: src-tauri
-      run: cargo check
-    
-    - name: Run Rust tests
-      working-directory: src-tauri
-      run: cargo test --no-fail-fast
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Check Rust code
+        working-directory: src-tauri
+        run: cargo check
+
+      - name: Run Rust tests
+        working-directory: src-tauri
+        run: cargo test --no-fail-fast
 
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Check formatting (if prettier is added)
-      run: echo "Skipping prettier check - not configured"
-      # run: npm run format:check
-    
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: rustfmt, clippy
-    
-    - name: Check Rust formatting
-      working-directory: src-tauri
-      run: cargo fmt -- --check
-    
-    - name: Run Clippy
-      working-directory: src-tauri
-      run: cargo clippy -- -D warnings
-      continue-on-error: true
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting (if prettier is added)
+        run: echo "Skipping prettier check - not configured"
+        # run: npm run format:check
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check Rust formatting
+        working-directory: src-tauri
+        run: cargo fmt -- --check
+
+      - name: Run Clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+        continue-on-error: true

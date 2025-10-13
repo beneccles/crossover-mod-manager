@@ -7,23 +7,27 @@ This guide provides information for developers working on the Crossover Mod Mana
 ### Prerequisites
 
 1. **Node.js and npm**
+
    - Node.js 18 or higher
    - npm 8 or higher
    - Check versions: `node --version && npm --version`
 
 2. **Rust**
+
    - Rust 1.70 or higher
    - Install via [rustup](https://rustup.rs/)
    - Check version: `rustc --version`
 
 3. **Tauri Dependencies**
-   
+
    **macOS:**
+
    ```bash
    xcode-select --install
    ```
-   
+
    **Linux (Ubuntu/Debian):**
+
    ```bash
    sudo apt update
    sudo apt install libwebkit2gtk-4.1-dev \
@@ -36,12 +40,13 @@ This guide provides information for developers working on the Crossover Mod Mana
      libayatana-appindicator3-dev \
      librsvg2-dev
    ```
-   
+
    **Note:** Ubuntu 22.04+ and Debian 12+ use `libwebkit2gtk-4.1-dev`. For older versions, use `libwebkit2gtk-4.0-dev`.
 
 ### Initial Setup
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/beneccles/crossover-mod-manager.git
    cd crossover-mod-manager
@@ -63,6 +68,7 @@ npm run tauri:dev
 ```
 
 This will:
+
 - Start Vite dev server on `http://localhost:1420`
 - Launch the Tauri application
 - Enable hot-reload for frontend changes
@@ -87,6 +93,7 @@ npm run tauri:build
 ```
 
 Build outputs:
+
 - **macOS**: `src-tauri/target/release/bundle/macos/`
 - **Linux**: `src-tauri/target/release/bundle/appimage/`
 - **Windows**: `src-tauri/target/release/bundle/msi/`
@@ -126,12 +133,14 @@ crossover-mod-manager/
 ## Key Technologies
 
 ### Frontend Stack
+
 - **React 19**: UI library
 - **Vite 7**: Build tool and dev server
 - **CSS**: Styling (no preprocessor)
 - **@tauri-apps/api**: Tauri JavaScript API
 
 ### Backend Stack
+
 - **Tauri 1.5**: Desktop app framework
 - **Rust**: Backend language
 - **serde/serde_json**: JSON serialization
@@ -182,6 +191,7 @@ All data is stored in the user's home directory:
 ### Adding a New Tauri Command
 
 1. Define function in Rust (`src-tauri/src/main.rs` or separate module):
+
    ```rust
    #[tauri::command]
    fn my_command(param: String) -> Result<String, String> {
@@ -190,6 +200,7 @@ All data is stored in the user's home directory:
    ```
 
 2. Register in `main()`:
+
    ```rust
    .invoke_handler(tauri::generate_handler![
        // ... existing commands
@@ -198,10 +209,11 @@ All data is stored in the user's home directory:
    ```
 
 3. Call from frontend:
+
    ```javascript
-   import { invoke } from '@tauri-apps/api/tauri'
-   
-   const result = await invoke('my_command', { param: 'value' })
+   import { invoke } from "@tauri-apps/api/tauri";
+
+   const result = await invoke("my_command", { param: "value" });
    ```
 
 ### Modifying Mod Installation Logic
@@ -236,10 +248,10 @@ const testMod = {
   description: "A test mod",
   download_url: "https://example.com/mod.zip",
   mod_id: "123",
-  file_id: "456"
-}
+  file_id: "456",
+};
 
-await invoke('install_mod', { modData: testMod })
+await invoke("install_mod", { modData: testMod });
 ```
 
 ## Debugging
@@ -269,6 +281,7 @@ await invoke('install_mod', { modData: testMod })
 ## Code Style
 
 ### JavaScript/React
+
 - Use functional components with hooks
 - Use arrow functions for callbacks
 - Use async/await for promises
@@ -276,6 +289,7 @@ await invoke('install_mod', { modData: testMod })
 - Use CSS modules for component styles
 
 ### Rust
+
 - Follow standard Rust formatting (`cargo fmt`)
 - Use `Result<T, String>` for errors
 - Handle errors with `map_err()`

@@ -37,25 +37,37 @@ impl ArchiveExtractor {
             if std::io::Read::read(&mut file, &mut magic).is_ok() {
                 // Check magic bytes for each format
                 // ZIP: 50 4B 03 04 or 50 4B 05 06 (empty archive) or 50 4B 07 08 (spanned)
-                if magic[0] == 0x50 && magic[1] == 0x4B && 
-                   (magic[2] == 0x03 || magic[2] == 0x05 || magic[2] == 0x07) {
+                if magic[0] == 0x50
+                    && magic[1] == 0x4B
+                    && (magic[2] == 0x03 || magic[2] == 0x05 || magic[2] == 0x07)
+                {
                     return ArchiveType::Zip;
                 }
-                
+
                 // 7z: 37 7A BC AF 27 1C
-                if magic[0] == 0x37 && magic[1] == 0x7A && magic[2] == 0xBC && 
-                   magic[3] == 0xAF && magic[4] == 0x27 && magic[5] == 0x1C {
+                if magic[0] == 0x37
+                    && magic[1] == 0x7A
+                    && magic[2] == 0xBC
+                    && magic[3] == 0xAF
+                    && magic[4] == 0x27
+                    && magic[5] == 0x1C
+                {
                     return ArchiveType::SevenZ;
                 }
-                
+
                 // RAR: 52 61 72 21 1A 07 (RAR 1.5+) or 52 61 72 21 1A 07 01 00 (RAR 5.0+)
-                if magic[0] == 0x52 && magic[1] == 0x61 && magic[2] == 0x72 && 
-                   magic[3] == 0x21 && magic[4] == 0x1A && magic[5] == 0x07 {
+                if magic[0] == 0x52
+                    && magic[1] == 0x61
+                    && magic[2] == 0x72
+                    && magic[3] == 0x21
+                    && magic[4] == 0x1A
+                    && magic[5] == 0x07
+                {
                     return ArchiveType::Rar;
                 }
             }
         }
-        
+
         // Fallback to extension-based detection if magic bytes don't match
         match archive_path.extension().and_then(|s| s.to_str()) {
             Some("zip") => ArchiveType::Zip,
@@ -77,9 +89,7 @@ impl ArchiveExtractor {
             ArchiveType::Zip => Self::extract_zip(archive_path, extract_dir),
             ArchiveType::SevenZ => Self::extract_7z_hybrid(archive_path, extract_dir),
             ArchiveType::Rar => Self::extract_rar_hybrid(archive_path, extract_dir),
-            ArchiveType::Unsupported(ext) => {
-                Err(format!("Unsupported archive format: .{}", ext))
-            }
+            ArchiveType::Unsupported(ext) => Err(format!("Unsupported archive format: .{}", ext)),
         }
     }
 
@@ -335,8 +345,7 @@ impl ArchiveExtractor {
 
     /// Check which system extractors are available
     pub fn check_system_tools() -> (bool, bool) {
-        let p7zip_available =
-            Self::check_command_exists("7z") || Self::check_command_exists("7za");
+        let p7zip_available = Self::check_command_exists("7z") || Self::check_command_exists("7za");
         let unrar_available = Self::check_command_exists("unrar");
         (p7zip_available, unrar_available)
     }
@@ -350,9 +359,8 @@ impl ArchiveExtractor {
             hints.push("💡 Install p7zip for faster 7z extraction: brew install p7zip".to_string());
         }
         if !unrar {
-            hints.push(
-                "💡 Install unrar for faster RAR extraction: brew install unrar".to_string(),
-            );
+            hints
+                .push("💡 Install unrar for faster RAR extraction: brew install unrar".to_string());
         }
 
         hints

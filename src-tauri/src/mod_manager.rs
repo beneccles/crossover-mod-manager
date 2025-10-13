@@ -16,12 +16,12 @@ pub struct ModInfo {
     pub file_id: Option<String>,
     pub enabled: bool,
     pub files: Vec<String>,
-    
+
     // File ownership tracking for conflict detection
     // Map of relative file path -> conflict info
     #[serde(default)]
     pub file_conflicts: HashMap<String, FileConflictInfo>,
-    
+
     // Install timestamp for determining which mod was installed first
     #[serde(default)]
     pub installed_at: Option<String>,
@@ -378,7 +378,10 @@ impl ModManager {
 
     /// Check for file conflicts with already installed mods
     /// Returns a map of file paths to conflicting mod info
-    pub fn check_file_conflicts(&self, files_to_install: &[String]) -> HashMap<String, Vec<ConflictDetails>> {
+    pub fn check_file_conflicts(
+        &self,
+        files_to_install: &[String],
+    ) -> HashMap<String, Vec<ConflictDetails>> {
         let mut conflicts: HashMap<String, Vec<ConflictDetails>> = HashMap::new();
 
         for file_path in files_to_install {
@@ -409,10 +412,10 @@ impl ModManager {
     #[allow(dead_code)]
     pub fn analyze_archive_load_order(&self, archive_files: &[String]) -> Vec<LoadOrderWarning> {
         let mut warnings = Vec::new();
-        
+
         // Get all installed archive files from all mods
         let mut all_archives: Vec<(String, String, String)> = Vec::new(); // (filename, mod_name, mod_id)
-        
+
         for existing_mod in &self.mods {
             for file in &existing_mod.files {
                 if file.ends_with(".archive") {
@@ -426,7 +429,7 @@ impl ModManager {
                 }
             }
         }
-        
+
         // Add new archives being installed
         for file in archive_files {
             if let Some(filename) = Path::new(file).file_name() {
@@ -437,15 +440,15 @@ impl ModManager {
                 ));
             }
         }
-        
+
         // Sort archives alphabetically (this is how CP2077 loads them)
         all_archives.sort_by(|a, b| a.0.cmp(&b.0));
-        
+
         // Check for archives that might conflict
         // Group by basegame_ prefix or other common patterns
         let mut basegame_archives = Vec::new();
         let mut patch_archives = Vec::new();
-        
+
         for (filename, mod_name, mod_id) in &all_archives {
             if filename.starts_with("basegame_") || filename.starts_with("basegame-") {
                 basegame_archives.push((filename.clone(), mod_name.clone(), mod_id.clone()));
@@ -453,7 +456,7 @@ impl ModManager {
                 patch_archives.push((filename.clone(), mod_name.clone(), mod_id.clone()));
             }
         }
-        
+
         // Warn if multiple mods modify basegame
         if basegame_archives.len() > 1 {
             let last_loaded = basegame_archives.last().unwrap();
@@ -472,7 +475,7 @@ impl ModManager {
                 ),
             });
         }
-        
+
         warnings
     }
     */
