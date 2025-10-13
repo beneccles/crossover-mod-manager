@@ -2666,6 +2666,38 @@ fn is_path_older_than(path: &Path, hours: u64) -> bool {
 }
 
 /// Clean up orphaned temporary files from previous sessions
+/// 
+/// SAFETY GUARANTEES:
+/// 1. **Exact Pattern Matching**: Only removes files matching EXACT formats created by this app
+///    - Archives: `mod_{numeric_id}_{numeric_id}.zip` (e.g., mod_107_123169.zip)
+///    - Directories: `mod_extract_{numeric_id}_{valid_uuid}` (e.g., mod_extract_107_550e8400-...)
+/// 
+/// 2. **Strict Validation**:
+///    - Archive: Both IDs must be purely numeric (no letters/symbols)
+///    - Directory: UUID must match exact format (8-4-4-4-12 hex with hyphens)
+///    - No partial matches or loose patterns
+/// 
+/// 3. **Age-Based Safety**: Only removes files older than 1 hour
+///    - Protects active downloads/installations
+///    - Prevents race conditions
+/// 
+/// 4. **Limited Scope**: Only scans system temp directory (std::env::temp_dir())
+///    - Never touches user directories
+///    - Never touches game installation folders
+/// 
+/// 5. **Examples of SAFE files (WILL be removed if old)**:
+///    - mod_107_123169.zip (valid: two numeric IDs)
+///    - mod_extract_107_550e8400-e29b-41d4-a716-446655440000 (valid: numeric ID + UUID)
+/// 
+/// 6. **Examples of PROTECTED files (WILL NOT be removed)**:
+///    - mod.zip (invalid: missing IDs)
+///    - mod_abc_123.zip (invalid: non-numeric ID)
+///    - mod_107_123.txt (invalid: not a .zip)
+///    - modern_art_file.zip (invalid: doesn't start with exactly "mod_")
+///    - mod_extract_abc_123 (invalid: no UUID)
+///    - mod_extract_107_not-a-uuid (invalid: malformed UUID)
+///    - Any file in directories other than system temp
+/// 
 /// Returns (files_removed, dirs_removed, errors)
 fn cleanup_orphaned_temp_files() -> (usize, usize, usize) {
     let temp_dir = std::env::temp_dir();
@@ -2673,23 +2705,53 @@ fn cleanup_orphaned_temp_files() -> (usize, usize, usize) {
     let mut dirs_removed = 0;
     let mut errors = 0;
     
-    // Pattern 1: Clean up old mod archives (mod_*_*.zip)
-    // Pattern 2: Clean up old extraction directories (mod_extract_*_*)
-    // Only remove if older than 1 hour to avoid race conditions with active installations
-    
     if let Ok(entries) = std::fs::read_dir(&temp_dir) {
         for entry in entries.flatten() {
             if let Ok(file_name) = entry.file_name().into_string() {
                 let path = entry.path();
                 
-                // Check if this is a mod archive file
-                let is_mod_archive = file_name.starts_with("mod_") && 
-                                    file_name.ends_with(".zip") &&
-                                    file_name.matches('_').count() >= 2;
+                // STRICT VALIDATION: Only match files created by THIS application
+                // Pattern: mod_{numeric_id}_{numeric_id}.zip (exactly)
+                // Example: mod_107_123169.zip
+                let is_mod_archive = if file_name.starts_with("mod_") && file_name.ends_with(".zip") {
+                    // Extract the part between "mod_" and ".zip"
+                    let inner = &file_name[4..file_name.len()-4]; // Remove "mod_" prefix and ".zip" suffix
+                    let parts: Vec<&str> = inner.split('_').collect();
+                    
+                    // Must have exactly 2 parts, both must be numeric (mod_id and file_id)
+                    parts.len() == 2 && 
+                    parts[0].chars().all(|c| c.is_ascii_digit()) && 
+                    parts[1].chars().all(|c| c.is_ascii_digit())
+                } else {
+                    false
+                };
                 
-                // Check if this is a mod extraction directory
-                let is_mod_extract_dir = file_name.starts_with("mod_extract_") &&
-                                        file_name.matches('_').count() >= 2;
+                // STRICT VALIDATION: Only match directories created by THIS application
+                // Pattern: mod_extract_{numeric_id}_{uuid} (exactly)
+                // Example: mod_extract_107_550e8400-e29b-41d4-a716-446655440000
+                let is_mod_extract_dir = if file_name.starts_with("mod_extract_") {
+                    let inner = &file_name[12..]; // Remove "mod_extract_" prefix
+                    let parts: Vec<&str> = inner.split('_').collect();
+                    
+                    // Must have exactly 2 parts: numeric mod_id and UUID
+                    // UUID format: 8-4-4-4-12 hex characters with hyphens
+                    if parts.len() == 2 && parts[0].chars().all(|c| c.is_ascii_digit()) {
+                        // Validate UUID format (basic check for correct length and structure)
+                        let uuid_part = parts[1];
+                        let uuid_segments: Vec<&str> = uuid_part.split('-').collect();
+                        uuid_segments.len() == 5 &&
+                        uuid_segments[0].len() == 8 &&
+                        uuid_segments[1].len() == 4 &&
+                        uuid_segments[2].len() == 4 &&
+                        uuid_segments[3].len() == 4 &&
+                        uuid_segments[4].len() == 12 &&
+                        uuid_part.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
                 
                 if (is_mod_archive || is_mod_extract_dir) && is_path_older_than(&path, 1) {
                     let result = if path.is_file() {
