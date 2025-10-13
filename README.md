@@ -76,7 +76,7 @@ brew install unrar
 
 **Note**: Archive extraction works without these tools using built-in Rust libraries, but system tools provide ~45% faster extraction. See [FEATURES.md](FEATURES.md#archive-support) for details.
 
-## Installation
+## Installation (for Developers)
 
 1. Clone the repository:
 
@@ -113,7 +113,7 @@ npm run tauri:build
 
 The built application will be available in `src-tauri/target/release/bundle/`.
 
-## Download / Installation
+## Download / Installation (for beta testers)
 
 ### Pre-built Releases
 
