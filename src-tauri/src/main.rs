@@ -2698,12 +2698,13 @@ fn is_path_older_than(path: &Path, hours: u64) -> bool {
 ///    - mod_extract_107_not-a-uuid (invalid: malformed UUID)
 ///    - Any file in directories other than system temp
 /// 
-/// Returns (files_removed, dirs_removed, errors)
-fn cleanup_orphaned_temp_files() -> (usize, usize, usize) {
+/// Returns (files_removed, dirs_removed, errors, removed_paths)
+fn cleanup_orphaned_temp_files() -> (usize, usize, usize, Vec<String>) {
     let temp_dir = std::env::temp_dir();
     let mut files_removed = 0;
     let mut dirs_removed = 0;
     let mut errors = 0;
+    let mut removed_paths: Vec<String> = Vec::new();
     
     if let Ok(entries) = std::fs::read_dir(&temp_dir) {
         for entry in entries.flatten() {
@@ -2754,15 +2755,18 @@ fn cleanup_orphaned_temp_files() -> (usize, usize, usize) {
                 };
                 
                 if (is_mod_archive || is_mod_extract_dir) && is_path_older_than(&path, 1) {
+                    let path_display = path.display().to_string();
                     let result = if path.is_file() {
                         std::fs::remove_file(&path).map(|_| {
                             files_removed += 1;
-                            println!("🧹 Cleaned orphaned file: {}", file_name);
+                            removed_paths.push(path_display.clone());
+                            println!("🧹 Cleaned orphaned file: {}", path_display);
                         })
                     } else if path.is_dir() {
                         std::fs::remove_dir_all(&path).map(|_| {
                             dirs_removed += 1;
-                            println!("🧹 Cleaned orphaned directory: {}", file_name);
+                            removed_paths.push(path_display.clone());
+                            println!("🧹 Cleaned orphaned directory: {}", path_display);
                         })
                     } else {
                         Ok(())
@@ -2770,14 +2774,14 @@ fn cleanup_orphaned_temp_files() -> (usize, usize, usize) {
                     
                     if result.is_err() {
                         errors += 1;
-                        eprintln!("⚠️  Failed to clean {}", file_name);
+                        eprintln!("⚠️  Failed to clean: {}", path_display);
                     }
                 }
             }
         }
     }
     
-    (files_removed, dirs_removed, errors)
+    (files_removed, dirs_removed, errors, removed_paths)
 }
 
 /// Tauri command to manually clean temporary files
@@ -2790,7 +2794,7 @@ fn clean_temp_files(state: State<AppState>) -> Result<String, String> {
         state.clone(),
     )?;
     
-    let (files_removed, dirs_removed, errors) = cleanup_orphaned_temp_files();
+    let (files_removed, dirs_removed, errors, removed_paths) = cleanup_orphaned_temp_files();
     
     let total_removed = files_removed + dirs_removed;
     
@@ -2803,6 +2807,16 @@ fn clean_temp_files(state: State<AppState>) -> Result<String, String> {
         )?;
         Ok("No temporary files found. Your system is clean!".to_string())
     } else {
+        // Log each removed path
+        for path in &removed_paths {
+            add_log(
+                format!("  🗑️  Removed: {}", path),
+                "info".to_string(),
+                "cleanup".to_string(),
+                state.clone(),
+            )?;
+        }
+        
         let mut message = format!(
             "Cleaned {} temporary file(s) and {} directory/directories",
             files_removed, dirs_removed
@@ -3121,9 +3135,14 @@ fn main() {
         .setup(|app| {
             // Clean up orphaned temporary files from previous sessions
             println!("🧹 Running startup cleanup for orphaned temporary files...");
-            let (files_removed, dirs_removed, errors) = cleanup_orphaned_temp_files();
+            let (files_removed, dirs_removed, errors, removed_paths) = cleanup_orphaned_temp_files();
             
             if files_removed > 0 || dirs_removed > 0 {
+                // Log each removed path
+                for path in &removed_paths {
+                    println!("  🗑️  Removed: {}", path);
+                }
+                
                 println!(
                     "✓ Startup cleanup: Removed {} file(s) and {} directory/directories",
                     files_removed, dirs_removed
