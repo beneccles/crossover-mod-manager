@@ -12,6 +12,7 @@ use settings::{AppSettings, Settings};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+#[allow(unused_imports)] // Listener is used for trait methods (.listen())
 use tauri::{Emitter, Listener, Manager, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
