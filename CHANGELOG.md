@@ -10,22 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Comprehensive Temporary File Cleanup System** 🧹
+
   - **RAII Pattern**: Automatic cleanup using Drop trait (TempFileGuard)
+
     - Guarantees cleanup even if function panics or returns early
     - Wraps archive files and extraction directories
     - Eliminates manual cleanup code scattered throughout
-  
+
   - **Startup Cleanup**: Automatic orphaned file detection on app launch
+
     - Removes abandoned mod archives (`mod_*_*.zip`)
     - Removes abandoned extraction directories (`mod_extract_*_*`)
     - Age-based filtering (only removes files >1 hour old)
     - Logs cleanup statistics to console
-  
+
   - **Manual Cleanup**: User-initiated cleanup via Settings UI
+
     - New "Clean Temporary Files" button in Settings → System Maintenance
     - Shows success/error messages with file counts
     - Accessible cleanup for users experiencing disk space issues
-  
+
   - **Age-Based Safety**: Smart cleanup prevents race conditions
     - Only removes temp files older than 1 hour
     - Protects actively running installations

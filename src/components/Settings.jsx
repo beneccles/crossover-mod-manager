@@ -334,8 +334,8 @@ function Settings() {
           <h3>System Maintenance</h3>
           <p>Cleanup and maintenance tools</p>
           <div className="setting-row">
-            <button 
-              onClick={cleanTempFiles} 
+            <button
+              onClick={cleanTempFiles}
               className="test-nxm-button"
               disabled={cleaningTemp}
             >
@@ -351,8 +351,9 @@ function Settings() {
               </p>
             )}
             <p className="help-text">
-              Removes orphaned mod archives and extraction directories from failed installations.
-              The app automatically cleans up on startup, but you can manually trigger cleanup here.
+              Removes orphaned mod archives and extraction directories from
+              failed installations. The app automatically cleans up on startup,
+              but you can manually trigger cleanup here.
             </p>
           </div>
         </div>
