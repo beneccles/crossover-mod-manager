@@ -352,12 +352,14 @@ fn sanitize_filename(name: &str) -> String {
 **Implementation Details**:
 
 - ✅ **Automatic Permission Setting**: All installed files and directories get Wine-compatible permissions
+
   - Files: `0o644` (rw-r--r--) - Read/write for owner, read for others
   - Directories: `0o755` (rwxr-xr-x) - Full permissions for owner, read/execute for others
   - Applied immediately after file copy and directory creation
   - Unix-only feature (no-op on Windows)
 
 - ✅ **Benefits**:
+
   - Improves Wine DLL loading reliability
   - Ensures config files are writable
   - Directories are properly traversable
@@ -369,9 +371,11 @@ fn sanitize_filename(name: &str) -> String {
   - Graceful degradation for edge cases
 
 **What Users See**:
+
 ```
 ⚠️  Could not set permissions for /path/to/file: Permission denied
 ```
+
 (Only shown if permission setting fails - rare)
 
 **User Impact**: LOW - Prevents rare issues, mostly affects advanced mods (✅ NOW RESOLVED)
@@ -400,6 +404,7 @@ fn sanitize_filename(name: &str) -> String {
 **Implementation Details**:
 
 - ✅ **Path Length Validation**: Automatic check before mod installation
+
   - PATH_MAX: 1024 characters (macOS limit)
   - SAFE_PATH_LIMIT: 900 characters (warning threshold)
   - Hard error if path exceeds 1024 characters
@@ -416,6 +421,7 @@ fn sanitize_filename(name: &str) -> String {
 **What Users See**:
 
 Hard error (≥1024 chars):
+
 ```
 ❌ Path too long (1087 chars). Maximum allowed is 1024 characters.
 Path: /Users/username/Library/Application Support/CrossOver/Bottles/...
@@ -425,6 +431,7 @@ Please use a shorter Crossover bottle name or move your bottle to a shorter path
 ```
 
 Warning (≥900 chars):
+
 ```
 ⚠️  Path approaching maximum length (945 chars, limit is 1024).
 Path: /Users/username/Library/Application Support/CrossOver/Bottles/...
@@ -512,6 +519,7 @@ fn check_sufficient_disk_space(path: &Path, required_bytes: u64) -> Result<(), S
 **Implementation Details**:
 
 - ✅ **Automatic Wine Version Detection**: Reads Wine registry during installation
+
   - Locates Wine bottle by walking up from game path to find `drive_c/`
   - Parses `system.reg` file for Windows version information
   - Reads registry keys:
@@ -520,6 +528,7 @@ fn check_sufficient_disk_space(path: &Path, required_bytes: u64) -> Result<(), S
     - `ProductName` (e.g., "Windows 10")
 
 - ✅ **Version Validation**:
+
   - ✅ Recommended: Windows 10 (version 10.0)
   - ⚠️ Warning: Windows 7/8 (older, some mods may fail)
   - ℹ️ Info: Windows 11 (newer, generally works but less tested)
@@ -533,6 +542,7 @@ fn check_sufficient_disk_space(path: &Path, required_bytes: u64) -> Result<(), S
 **What Users See**:
 
 Recommended version detected:
+
 ```
 🪟 Detecting Wine Windows version...
 ✓ Wine is configured to emulate: Windows 10 (Build 19041)
@@ -540,6 +550,7 @@ Recommended version detected:
 ```
 
 Older version detected:
+
 ```
 ⚠️  Wine is configured to emulate: Windows 7
   Some modern mods require Windows 10 or later
@@ -659,24 +670,28 @@ let _guard = TempFileGuard(temp_file_path);
 ### Phase 3: Polish and Edge Cases - ✅ COMPLETED in v1.5.0
 
 7. ✅ **Disk space checking** - **COMPLETED in v1.4.0**
+
    - ✅ Pre-download and pre-extraction space validation
    - ✅ 3x safety multiplier for space calculation
    - ✅ Human-readable size formatting
    - ✅ Clear error messages with actionable tips
 
 8. ✅ **File permissions management** - **COMPLETED in v1.5.0**
+
    - ✅ Automatic Wine-compatible permission setting
    - ✅ Files: 0o644, Directories: 0o755
    - ✅ Applied after each file copy and directory creation
    - ✅ Improves Wine DLL loading and config file writability
 
 9. ✅ **Path length validation** - **COMPLETED in v1.5.0**
+
    - ✅ PATH_MAX (1024) validation before installation
    - ✅ Warning at 900 characters (safety margin)
    - ✅ Helpful suggestions for shorter bottle names
    - ✅ Prevents cryptic macOS filesystem errors
 
 10. ✅ **Windows version emulation detection** - **COMPLETED in v1.5.0**
+
     - ✅ Automatic Wine registry reading
     - ✅ Validates against recommended Windows 10
     - ✅ Step-by-step configuration instructions

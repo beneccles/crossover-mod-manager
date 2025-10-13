@@ -10,20 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Phase 3 Crossover Compatibility Complete** 🎉
+
   - **File Permissions Management** (Priority #8)
+
     - Automatic Wine-compatible permission setting after file installation
     - Files set to 0o644 (rw-r--r--) for proper Wine DLL loading
     - Directories set to 0o755 (rwxr-xr-x) for traversability
     - Improves Wine DLL loading and config file writability
     - Unix-only feature (no-op on Windows)
-  
+
   - **Long Path Validation** (Priority #9)
+
     - Checks PATH_MAX (1024 characters) before installation
     - Warns if path approaches 900 characters (safety margin)
     - Hard error if path exceeds maximum allowed length
     - Suggests shorter Crossover bottle names or paths
     - Prevents cryptic macOS filesystem failures
-  
+
   - **Windows Version Detection** (Priority #11)
     - Automatic detection of Wine's configured Windows version
     - Reads Wine registry (system.reg) from bottle
