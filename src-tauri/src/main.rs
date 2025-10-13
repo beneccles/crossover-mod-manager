@@ -468,14 +468,12 @@ fn list_downloaded_mods(state: State<AppState>) -> Result<Vec<String>, String> {
     let mut downloaded_mods = Vec::new();
 
     if let Ok(entries) = fs::read_dir(storage_path) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_file() {
-                    if let Some(filename) = path.file_name() {
-                        if let Some(filename_str) = filename.to_str() {
-                            downloaded_mods.push(filename_str.to_string());
-                        }
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(filename) = path.file_name() {
+                    if let Some(filename_str) = filename.to_str() {
+                        downloaded_mods.push(filename_str.to_string());
                     }
                 }
             }
@@ -777,12 +775,14 @@ async fn handle_nxm_url(
         
         // Call the complete installation function
         match install_mod_from_nxm(
-            mod_name.clone(),
-            mod_version.clone(),
-            mod_author.clone(),
-            mod_id.to_string(),
-            file_id.to_string(),
-            download_url,
+            ModInstallParams {
+                mod_name: mod_name.clone(),
+                mod_version: mod_version.clone(),
+                mod_author: mod_author.clone(),
+                mod_id: mod_id.to_string(),
+                file_id: file_id.to_string(),
+                download_url,
+            },
             state.clone(),
             app.clone()
         ).await {
@@ -943,12 +943,14 @@ async fn handle_collection_download(
 
         // Install this mod
         match install_mod_from_nxm(
-            collection_mod.name.clone(),
-            collection_mod.version.clone(),
-            "Collection Author".to_string(), // Collections don't always have individual mod authors
-            collection_mod.mod_id.to_string(),
-            collection_mod.file_id.to_string(),
-            download_url,
+            ModInstallParams {
+                mod_name: collection_mod.name.clone(),
+                mod_version: collection_mod.version.clone(),
+                mod_author: "Collection Author".to_string(), // Collections don't always have individual mod authors
+                mod_id: collection_mod.mod_id.to_string(),
+                file_id: collection_mod.file_id.to_string(),
+                download_url,
+            },
             state.clone(),
             app.clone(),
         ).await {
@@ -1043,25 +1045,38 @@ fn is_valid_cyberpunk_installation(path: &std::path::Path) -> bool {
     false
 }
 
-#[allow(unused_assignments)]
-#[tauri::command]
-async fn install_mod_from_nxm(
+/// Parameters for mod installation from NXM URL
+#[derive(Debug, serde::Deserialize)]
+struct ModInstallParams {
     mod_name: String,
     mod_version: String,
     mod_author: String,
     mod_id: String,
     file_id: String,
     download_url: String,
+}
+
+#[allow(unused_assignments)]
+#[tauri::command]
+async fn install_mod_from_nxm(
+    params: ModInstallParams,
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
+    // Extract parameters
+    let mod_name = params.mod_name;
+    let mod_version = params.mod_version;
+    let mod_author = params.mod_author;
+    let mod_id = params.mod_id;
+    let file_id = params.file_id;
+    let download_url = params.download_url;
     use std::fs;
     use std::path::Path;
     use walkdir::WalkDir;
 
     // Variables for cleanup (used throughout the function for error handling)
     let mut archive_path: Option<std::path::PathBuf> = None;
-    let mut extract_dir: Option<std::path::PathBuf> = None;
+    let mut _extract_dir: Option<std::path::PathBuf> = None;
 
     // Get game path from settings
     let game_path = {
@@ -1165,7 +1180,7 @@ async fn install_mod_from_nxm(
         match check_sufficient_disk_space(&temp_dir, total_size) {
             Ok(_) => {
                 add_log(
-                    format!("✓ Sufficient disk space available for download and extraction"),
+                    "✓ Sufficient disk space available for download and extraction".to_string(),
                     "info".to_string(),
                     "download".to_string(),
                     state.clone(),
@@ -1280,16 +1295,12 @@ async fn install_mod_from_nxm(
         temp_extract_dir.clone(),
         format!("extraction directory: mod_extract_{}_*", mod_id)
     );
-    extract_dir = Some(temp_extract_dir.clone());
     
     // Extract using hybrid extractor (supports ZIP, 7z, RAR)
     let (file_count, extraction_method) = archive_extractor::ArchiveExtractor::extract(
         &temp_archive_path,
         &temp_extract_dir
-    ).map_err(|e| {
-        // Guards will auto-cleanup on error
-        e
-    })?;
+    )?; // Guards will auto-cleanup on error
 
     let method_name = archive_extractor::ArchiveExtractor::method_name(&extraction_method);
     add_log(
@@ -1543,7 +1554,7 @@ async fn install_mod_from_nxm(
                 }
                 
                 add_log(
-                    format!("🔧 Auto-correcting path casing to match game structure"),
+                    "🔧 Auto-correcting path casing to match game structure".to_string(),
                     "info".to_string(),
                     "installation".to_string(),
                     state.clone(),
@@ -2225,10 +2236,7 @@ async fn install_mod_from_nxm(
             e.to_string()
         })?;
         manager.add_mod(mod_info.clone());
-        manager.save_database().map_err(|e| {
-            // Guards will auto-cleanup temp files on error
-            e
-        })?;
+        manager.save_database()?; // Guards will auto-cleanup temp files on error
     }
 
     // Step 6: Cleanup temporary files (RAII guards will handle this automatically)
@@ -2344,7 +2352,7 @@ fn sanitize_filename(name: &str) -> String {
 
 /// Check if a filename contains non-ASCII characters
 fn contains_unicode(name: &str) -> bool {
-    name.chars().any(|c| !c.is_ascii())
+    !name.is_ascii()
 }
 
 /// Check if sanitization changed the filename
@@ -2730,8 +2738,7 @@ fn cleanup_orphaned_temp_files() -> (usize, usize, usize, Vec<String>) {
                 // STRICT VALIDATION: Only match directories created by THIS application
                 // Pattern: mod_extract_{numeric_id}_{uuid} (exactly)
                 // Example: mod_extract_107_550e8400-e29b-41d4-a716-446655440000
-                let is_mod_extract_dir = if file_name.starts_with("mod_extract_") {
-                    let inner = &file_name[12..]; // Remove "mod_extract_" prefix
+                let is_mod_extract_dir = if let Some(inner) = file_name.strip_prefix("mod_extract_") {
                     let parts: Vec<&str> = inner.split('_').collect();
                     
                     // Must have exactly 2 parts: numeric mod_id and UUID

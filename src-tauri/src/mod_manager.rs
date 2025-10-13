@@ -387,7 +387,7 @@ impl ModManager {
                 if existing_mod.files.contains(file_path) {
                     conflicts
                         .entry(file_path.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(ConflictDetails {
                             mod_id: existing_mod.id.clone(),
                             mod_name: existing_mod.name.clone(),
@@ -401,8 +401,12 @@ impl ModManager {
         conflicts
     }
 
+    // TODO: Implement active load order management UI
+    // Currently unused - load order detection is done inline during installation
+    /*
     /// Analyze archive file load order conflicts
     /// Returns warnings about which archive will override which
+    #[allow(dead_code)]
     pub fn analyze_archive_load_order(&self, archive_files: &[String]) -> Vec<LoadOrderWarning> {
         let mut warnings = Vec::new();
         
@@ -471,6 +475,7 @@ impl ModManager {
         
         warnings
     }
+    */
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -481,6 +486,9 @@ pub struct ConflictDetails {
     pub is_archive: bool,
 }
 
+// TODO: Implement active load order management UI
+// Currently unused - kept for future feature implementation
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoadOrderWarning {
     pub warning_type: LoadOrderWarningType,
@@ -489,6 +497,7 @@ pub struct LoadOrderWarning {
     pub suggestion: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LoadOrderWarningType {
     MultipleBasegameArchives,

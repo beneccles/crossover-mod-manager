@@ -34,7 +34,7 @@ impl ArchiveExtractor {
         // Try to read the first few bytes to detect the actual format
         if let Ok(mut file) = fs::File::open(archive_path) {
             let mut magic = [0u8; 8];
-            if let Ok(_) = std::io::Read::read(&mut file, &mut magic) {
+            if std::io::Read::read(&mut file, &mut magic).is_ok() {
                 // Check magic bytes for each format
                 // ZIP: 50 4B 03 04 or 50 4B 05 06 (empty archive) or 50 4B 07 08 (spanned)
                 if magic[0] == 0x50 && magic[1] == 0x4B && 
