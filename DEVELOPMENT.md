@@ -26,7 +26,7 @@ This guide provides information for developers working on the Crossover Mod Mana
    **Linux (Ubuntu/Debian):**
    ```bash
    sudo apt update
-   sudo apt install libwebkit2gtk-4.0-dev \
+   sudo apt install libwebkit2gtk-4.1-dev \
      build-essential \
      curl \
      wget \
@@ -36,6 +36,8 @@ This guide provides information for developers working on the Crossover Mod Mana
      libayatana-appindicator3-dev \
      librsvg2-dev
    ```
+   
+   **Note:** Ubuntu 22.04+ and Debian 12+ use `libwebkit2gtk-4.1-dev`. For older versions, use `libwebkit2gtk-4.0-dev`.
 
 ### Initial Setup
 
