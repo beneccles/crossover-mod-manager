@@ -326,5 +326,4 @@ MIT License - see [LICENSE](https://github.com/beneccles/crossover-mod-manager/b
 
 - Built for the Cyberpunk 2077 modding community
 - Designed to work seamlessly with NexusMods
-- Optimized for Mac users running games through Crossover
-test
+- Optimized for Mac users running games through Crossover 25.
