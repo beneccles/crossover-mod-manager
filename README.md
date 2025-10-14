@@ -8,6 +8,55 @@ A Nexus Mod Manager for PC games on Mac via Crossover, built with React, Vite, T
 
 **Currently this only works with Cyberpunk 2077, but I have plans to support more games in the future.**
 
+## Download / Installation
+
+### Pre-built Releases
+
+Download the latest beta release:
+
+**[📦 Download Latest Release](https://github.com/beneccles/crossover-mod-manager/releases)**
+
+Available packages:
+
+- **macOS (Apple Silicon)**: `.dmg` file for M1/M2/M3/M4 Macs
+
+**Platform Requirements**:
+
+- macOS 11.0+ (Big Sur or later)
+- Apple Silicon Mac (M1/M2/M3/M4)
+- CrossOver 25 or later (recommended; v24 may work but is untested)
+
+### Beta Releases
+
+During beta testing, releases are marked with the 🧪 BETA tag. To download a beta:
+
+1. Visit the [Releases page](https://github.com/beneccles/crossover-mod-manager/releases)
+2. Look for releases tagged with **🧪 BETA Release** (e.g., v0.1.0-beta1)
+3. Download the `Crossover.Mod.Manager_*_aarch64.dmg` file
+4. Follow the installation instructions below
+
+⚠️ **Beta Software Notice**: Beta releases may contain bugs and are intended for testing purposes. Please [report any issues](https://github.com/beneccles/crossover-mod-manager/issues) you encounter.
+
+### Installation Instructions
+
+1. **Download** the `.dmg` file from the releases page
+2. **Open** the DMG file (double-click)
+3. **Drag** the Crossover Mod Manager app to your Applications folder
+4. **First Launch** - macOS Security Warning:
+   - When you first try to open the app, macOS will block it with a security warning
+   - This is normal for beta software that isn't notarized by Apple
+   - **To open the app**:
+     1. Right-click (or Control-click) the app in Applications
+     2. Select "Open" from the menu
+     3. Click "Open" again in the security dialog
+   - After this first time, the app will open normally with a regular double-click
+
+**Why the security warning?** Beta releases use ad-hoc signing to allow for rapid iteration. A fully signed and notarized version will be available with the stable v1.0.0 release. See [APPLE_DISTRIBUTION.md](APPLE_DISTRIBUTION.md) for details.
+
+### Building from Source
+
+If you want to build from source, see the [Development](#development) section below.
+
 ## Features
 
 - **NexusMods Integration**: Responds to 'Download with Mod Manager' links on NexusMods
@@ -114,55 +163,6 @@ npm run tauri:build
 ```
 
 The built application will be available in `src-tauri/target/release/bundle/`.
-
-## Download / Installation (for beta testers)
-
-### Pre-built Releases
-
-Download the latest release for your platform:
-
-**[📦 Download Latest Release](https://github.com/beneccles/crossover-mod-manager/releases/latest)**
-
-Available packages:
-
-- **macOS (Apple Silicon)**: `.dmg` file for M1/M2/M3/M4 Macs
-
-**Platform Requirements**:
-
-- macOS 11.0+ (Big Sur or later)
-- Apple Silicon Mac (M1/M2/M3/M4)
-- CrossOver 25 or later (recommended; v24 may work but is untested)
-
-### Beta Releases
-
-During beta testing, releases are marked with the 🧪 BETA tag. To download a beta:
-
-1. Visit the [Releases page](https://github.com/beneccles/crossover-mod-manager/releases)
-2. Look for releases tagged with **🧪 BETA Release** (e.g., v0.1.0-beta1)
-3. Download the `Crossover.Mod.Manager_*_aarch64.dmg` file
-4. Follow the installation instructions below
-
-⚠️ **Beta Software Notice**: Beta releases may contain bugs and are intended for testing purposes. Please [report any issues](https://github.com/beneccles/crossover-mod-manager/issues) you encounter.
-
-### Installation Instructions
-
-1. **Download** the `.dmg` file from the releases page
-2. **Open** the DMG file (double-click)
-3. **Drag** the Crossover Mod Manager app to your Applications folder
-4. **First Launch** - macOS Security Warning:
-   - When you first try to open the app, macOS will block it with a security warning
-   - This is normal for beta software that isn't notarized by Apple
-   - **To open the app**:
-     1. Right-click (or Control-click) the app in Applications
-     2. Select "Open" from the menu
-     3. Click "Open" again in the security dialog
-   - After this first time, the app will open normally with a regular double-click
-
-**Why the security warning?** Beta releases use ad-hoc signing to allow for rapid iteration. A fully signed and notarized version will be available with the stable v1.0.0 release. See [APPLE_DISTRIBUTION.md](APPLE_DISTRIBUTION.md) for details.
-
-### Building from Source
-
-If you want to build from source, see the [Development](#development) section above.
 
 ## Usage
 
