@@ -6,6 +6,9 @@ on:
       - "v*-beta*" # Trigger on beta version tags like v1.6.0-beta1, v1.6.0-beta2, etc.
   workflow_dispatch: # Allow manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   create-release:
     name: Create Release
