@@ -3305,6 +3305,7 @@ fn check_and_run_first_setup(state: State<'_, AppState>) -> Result<String, Strin
     }
 }
 
+#[allow(unused_variables)] // app is used in cfg(target_os = "macos") code
 fn main() {
     let mod_manager = ModManager::new();
     let app_settings = AppSettings::new();
