@@ -1,7 +1,7 @@
 # Crossover Mod Manager
 
 [![Build Status](https://github.com/beneccles/crossover-mod-manager/workflows/Build%20and%20Test/badge.svg)](https://github.com/beneccles/crossover-mod-manager/actions)
-[![Release](https://img.shields.io/github/v/release/beneccles/crossover-mod-manager)](https://github.com/beneccles/crossover-mod-manager/releases)
+[![Release](https://img.shields.io/github/v/release/beneccles/crossover-mod-manager?include_prereleases)](https://github.com/beneccles/crossover-mod-manager/releases)
 [![License](https://img.shields.io/github/license/beneccles/crossover-mod-manager)](https://github.com/beneccles/crossover-mod-manager/blob/main/LICENSE)
 
 A Nexus Mod Manager for PC games on Mac via Crossover, built with React, Vite, Tauri, and Rust.
