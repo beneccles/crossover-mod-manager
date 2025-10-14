@@ -3340,7 +3340,7 @@ fn main() {
             install_mod_from_nxm,
             clean_temp_files
         ])
-        .setup(|_app| {
+        .setup(|app| {
             // Clean up orphaned temporary files from previous sessions
             println!("🧹 Running startup cleanup for orphaned temporary files...");
             let (files_removed, dirs_removed, errors, removed_paths) =
