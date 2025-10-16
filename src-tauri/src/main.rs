@@ -306,10 +306,21 @@ async fn import_mod_profile(
     // Extract game name before moving profile
     let game_name = profile.game.clone();
 
+    // Get current game_id from settings
+    let current_game_id = {
+        let settings_guard = state.settings.lock().map_err(|e| e.to_string())?;
+        let settings = settings_guard.get_settings();
+        if settings.current_game.is_empty() {
+            "cyberpunk2077".to_string()
+        } else {
+            settings.current_game.clone()
+        }
+    };
+
     // Import profile - this registers existing mods and returns mods to download
     let (registered_mods, to_download_mods) = {
         let mut manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
-        manager.import_profile(profile)?
+        manager.import_profile(profile, current_game_id)?
     };
 
     add_log(

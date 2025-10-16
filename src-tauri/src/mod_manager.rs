@@ -186,6 +186,7 @@ impl ModManager {
         &mut self,
         mod_data: serde_json::Value,
         settings: &crate::settings::Settings,
+        game_id: String,
     ) -> Result<(), String> {
         // Extract mod information from the data
         let name = mod_data
@@ -238,6 +239,7 @@ impl ModManager {
                 .map(String::from),
             enabled: true,
             files: installed_files,
+            game_id,
             file_conflicts: HashMap::new(),
             installed_at: Some(chrono::Utc::now().to_rfc3339()),
         };
@@ -339,6 +341,7 @@ impl ModManager {
     pub fn import_profile(
         &mut self,
         profile: ModProfile,
+        game_id: String,
     ) -> Result<(Vec<ModProfileEntry>, Vec<ModProfileEntry>), String> {
         let mut registered_mods = Vec::new();
         let mut to_download_mods = Vec::new();
@@ -369,6 +372,7 @@ impl ModManager {
                     file_id: Some(profile_entry.file_id.clone()),
                     enabled: true,
                     files: existing_files,
+                    game_id: game_id.clone(),
                     file_conflicts: HashMap::new(),
                     installed_at: Some(chrono::Utc::now().to_rfc3339()),
                 };
