@@ -82,6 +82,12 @@ impl ModManager {
     
     pub fn new_for_game(game_id: &str) -> Self {
         let database_path = Self::get_database_path_for_game(game_id);
+        
+        // Migrate legacy mods.json to mods_cyberpunk2077.json
+        if game_id == "cyberpunk2077" && !database_path.exists() {
+            Self::migrate_legacy_database(&database_path);
+        }
+        
         let mods = Self::load_database(&database_path);
 
         Self {
@@ -98,10 +104,12 @@ impl ModManager {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn get_current_game(&self) -> &str {
         &self.current_game
     }
 
+    #[allow(dead_code)]
     fn get_database_path() -> PathBuf {
         Self::get_database_path_for_game("cyberpunk2077")
     }
@@ -115,6 +123,32 @@ impl ModManager {
         }
 
         app_dir.join(format!("mods_{}.json", game_id))
+    }
+    
+    /// Migrate legacy mods.json to game-specific database
+    fn migrate_legacy_database(new_path: &Path) {
+        let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+        let legacy_path = home.join(".crossover-mod-manager").join("mods.json");
+        
+        if legacy_path.exists() {
+            // Read legacy database
+            if let Ok(content) = fs::read_to_string(&legacy_path) {
+                if let Ok(mut db) = serde_json::from_str::<ModDatabase>(&content) {
+                    // Set game_id for all mods if not already set
+                    for mod_info in &mut db.mods {
+                        if mod_info.game_id.is_empty() {
+                            mod_info.game_id = "cyberpunk2077".to_string();
+                        }
+                    }
+                    
+                    // Write to new game-specific database
+                    if let Ok(json) = serde_json::to_string_pretty(&db) {
+                        fs::write(new_path, json).ok();
+                        println!("Migrated legacy mods.json to mods_cyberpunk2077.json");
+                    }
+                }
+            }
+        }
     }
 
     fn load_database(path: &Path) -> Vec<ModInfo> {
@@ -148,6 +182,38 @@ impl ModManager {
 
     pub fn add_mod(&mut self, mod_info: ModInfo) {
         self.mods.push(mod_info);
+    }
+
+    /// Remove duplicate mod entries based on mod_id and file_id
+    /// Keeps the most recent installation (last in the list)
+    pub fn deduplicate_mods(&mut self) -> usize {
+        use std::collections::HashSet;
+        
+        let mut seen = HashSet::new();
+        let mut deduplicated = Vec::new();
+        let original_count = self.mods.len();
+        
+        // Process in reverse order to keep the most recent entries
+        for mod_info in self.mods.iter().rev() {
+            if let (Some(mod_id), Some(file_id)) = (&mod_info.mod_id, &mod_info.file_id) {
+                let key = (mod_id.clone(), file_id.clone());
+                if !seen.contains(&key) {
+                    seen.insert(key);
+                    deduplicated.push(mod_info.clone());
+                }
+            } else {
+                // Keep mods without mod_id/file_id (shouldn't happen, but be safe)
+                deduplicated.push(mod_info.clone());
+            }
+        }
+        
+        // Reverse back to restore chronological order
+        deduplicated.reverse();
+        
+        let removed_count = original_count - deduplicated.len();
+        self.mods = deduplicated;
+        
+        removed_count
     }
 
     /// Check if a mod is already installed based on mod_id and file_id
@@ -455,6 +521,13 @@ impl ModManager {
             return Err("Game directory does not exist".to_string());
         }
 
+        // Get the resolver for the current game
+        let game_id = &self.current_game;
+        let resolver = crate::game_definitions::get_game_by_id(game_id)
+            .ok_or_else(|| format!("Unknown game: {}", game_id))?
+            .resolver
+            .as_ref();
+
         let mut installed_files = Vec::new();
 
         // Walk through extracted files and install them
@@ -468,8 +541,18 @@ impl ModManager {
                     .strip_prefix(extracted_dir)
                     .map_err(|e| e.to_string())?;
 
-                // Determine installation path based on file structure
-                let install_path = self.determine_install_path(game_dir, relative_path)?;
+                let normalized_path = relative_path;
+                let path_str = relative_path.to_string_lossy().to_lowercase();
+                let file_name = entry.file_name().to_string_lossy();
+
+                // Use the game resolver to determine install path
+                let install_path = resolver.resolve_install_path(
+                    game_dir,
+                    relative_path,
+                    normalized_path,
+                    &path_str,
+                    &file_name,
+                )?;
 
                 // Create parent directories
                 if let Some(parent) = install_path.parent() {

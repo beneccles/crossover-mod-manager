@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import "./GameSelector.css";
 
@@ -53,6 +54,46 @@ function GameSelector({ onGameChange }) {
     }
   };
 
+  const autoDetectGame = async () => {
+    if (!selectedNewGame) {
+      alert("Please select a game first");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const gameName = supportedGames.find(
+        (g) => g.id === selectedNewGame
+      )?.name;
+
+      // Try to auto-detect the game in CrossOver bottles
+      const detectedPath = await invoke("auto_detect_game_in_bottles", {
+        gameId: selectedNewGame,
+      });
+
+      if (!detectedPath) {
+        alert(
+          `Could not auto-detect ${gameName} in any CrossOver bottles.\n\nPlease use the "Browse..." button to select the game folder manually.`
+        );
+        return;
+      }
+
+      // Add the game with the detected path
+      await invoke("add_game", {
+        gameId: selectedNewGame,
+        gamePath: detectedPath,
+      });
+
+      alert(`✓ Auto-detected and added ${gameName}!\n\nPath: ${detectedPath}`);
+      setSelectedNewGame("");
+      await loadGames();
+    } catch (error) {
+      alert(`❌ Failed to auto-detect game: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addNewGame = async () => {
     if (!selectedNewGame) {
       alert("Please select a game first");
@@ -65,6 +106,7 @@ function GameSelector({ onGameChange }) {
           supportedGames.find((g) => g.id === selectedNewGame)?.name
         } Installation Folder`,
         directory: true,
+        parent: getCurrentWindow(),
       });
 
       if (!gamePath) return;
@@ -219,16 +261,25 @@ function GameSelector({ onGameChange }) {
               ))}
             </select>
             <button
+              onClick={autoDetectGame}
+              disabled={!selectedNewGame || loading}
+              className="auto-detect-button"
+              title="Automatically scan CrossOver bottles for this game"
+            >
+              🔍 Auto-detect
+            </button>
+            <button
               onClick={addNewGame}
               disabled={!selectedNewGame || loading}
               className="add-button"
+              title="Manually browse for game folder"
             >
-              Add Game
+              📁 Browse...
             </button>
           </div>
           <p className="help-text">
-            Select a game and browse to its installation folder. CMM will
-            auto-detect the game type.
+            Try auto-detect to scan CrossOver bottles, or browse to manually
+            select the game folder.
           </p>
         </div>
       )}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ask as askDialog } from "@tauri-apps/plugin-dialog";
 import ModList from "./components/ModList";
 import ModDetails from "./components/ModDetails";
 import Settings from "./components/Settings";
@@ -12,9 +14,11 @@ function App() {
   const [selectedMod, setSelectedMod] = useState(null);
   const [activeTab, setActiveTab] = useState("mods");
   const [loading, setLoading] = useState(false);
+  const [currentGame, setCurrentGame] = useState(null);
 
   useEffect(() => {
     loadMods();
+    loadCurrentGame();
 
     // Check and run first setup
     const runFirstSetup = async () => {
@@ -51,7 +55,7 @@ function App() {
           try {
             console.log("🟡 About to invoke handle_nxm_url...");
             // Process the NXM URL
-            await invoke("handle_nxm_url", { nxm_url: event.payload });
+            await invoke("handle_nxm_url", { nxmUrl: event.payload });
             console.log("🟢 Successfully processed NXM URL from system");
           } catch (error) {
             console.error("🔴 Failed to process NXM URL from system:", error);
@@ -145,7 +149,56 @@ function App() {
     };
 
     setupCollectionCompleteListener();
+
+    // Listen for game-switched events to update current game
+    const setupGameSwitchedListener = async () => {
+      try {
+        const unlisten = await listen("game-switched", async (event) => {
+          console.log("🎮 Game switched event received:", event.payload);
+
+          // Reload current game info
+          await loadCurrentGame();
+        });
+
+        return unlisten;
+      } catch (error) {
+        console.error("Failed to setup game-switched listener:", error);
+      }
+    };
+
+    setupGameSwitchedListener();
+
+    // Listen for mods-updated events to refresh both mods and current game
+    const setupModsUpdatedListener = async () => {
+      try {
+        const unlisten = await listen("mods-updated", async () => {
+          console.log("🔄 Mods updated event received, refreshing...");
+          await loadMods();
+          await loadCurrentGame();
+        });
+
+        return unlisten;
+      } catch (error) {
+        console.error("Failed to setup mods-updated listener:", error);
+      }
+    };
+
+    setupModsUpdatedListener();
   }, []);
+
+  const loadCurrentGame = async () => {
+    try {
+      const settings = await invoke("get_settings");
+      const games = await invoke("get_supported_games");
+
+      if (settings.current_game) {
+        const gameInfo = games.find((g) => g.id === settings.current_game);
+        setCurrentGame(gameInfo);
+      }
+    } catch (error) {
+      console.error("Failed to load current game:", error);
+    }
+  };
 
   const loadMods = async () => {
     try {
@@ -183,11 +236,16 @@ function App() {
   };
 
   const handleRemoveMod = async (modId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to remove this mod? All installed files will be deleted."
-      )
-    ) {
+    const confirmed = await askDialog(
+      "Are you sure you want to remove this mod? All installed files will be deleted.",
+      {
+        title: "Remove Mod",
+        kind: "warning",
+        parent: getCurrentWindow(),
+      }
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -244,6 +302,7 @@ function App() {
               onSelectMod={setSelectedMod}
               loading={loading}
               onRefresh={loadMods}
+              currentGame={currentGame}
             />
             <ModDetails
               mod={selectedMod}

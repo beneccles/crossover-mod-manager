@@ -1,8 +1,20 @@
 import "./ModList.css";
 
-function ModList({ mods, selectedMod, onSelectMod, loading, onRefresh }) {
+function ModList({
+  mods,
+  selectedMod,
+  onSelectMod,
+  loading,
+  onRefresh,
+  currentGame,
+}) {
   return (
     <div className="mod-list">
+      {currentGame && (
+        <div className="current-game-header">
+          <span className="game-badge">{currentGame.name}</span>
+        </div>
+      )}
       <div className="mod-list-header">
         <h2>Installed Mods</h2>
         <div className="mod-list-actions">

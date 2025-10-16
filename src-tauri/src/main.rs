@@ -7,7 +7,6 @@ mod mod_manager;
 mod nexusmods_api;
 mod settings;
 
-use game_definitions::GameDefinition;
 use mod_manager::{ModInfo, ModManager};
 use serde::{Deserialize, Serialize};
 use settings::{AppSettings, GameConfig, Settings};
@@ -247,7 +246,7 @@ fn export_mod_profile(file_path: String, state: State<AppState>) -> Result<Strin
             "Cyberpunk 2077".to_string()
         } else {
             game_definitions::get_game_by_id(&settings.current_game)
-                .map(|g| g.name)
+                .map(|g| g.name.clone())
                 .unwrap_or_else(|| "Cyberpunk 2077".to_string())
         }
     };
@@ -492,9 +491,8 @@ async fn import_mod_profile(
 }
 
 #[tauri::command]
-fn get_supported_games() -> Result<Vec<GameDefinition>, String> {
-    let games = game_definitions::get_supported_games();
-    Ok(games.into_values().collect())
+fn get_supported_games() -> Result<Vec<game_definitions::GameDefinitionInfo>, String> {
+    Ok(game_definitions::get_supported_games_info())
 }
 
 #[tauri::command]
@@ -534,7 +532,7 @@ fn switch_game(
 }
 
 #[tauri::command]
-fn detect_game_from_path(path: String) -> Result<Option<GameDefinition>, String> {
+fn detect_game_from_path(path: String) -> Result<Option<game_definitions::GameDefinitionInfo>, String> {
     let path_buf = PathBuf::from(&path);
     Ok(game_definitions::detect_game_from_path(&path_buf))
 }
@@ -700,6 +698,86 @@ fn auto_detect_game_path() -> Result<Option<String>, String> {
         }
     }
 
+    Ok(None)
+}
+
+/// Auto-detect a specific game in CrossOver bottles
+/// Returns the detected path or None if not found
+#[tauri::command]
+fn auto_detect_game_in_bottles(game_id: String) -> Result<Option<String>, String> {
+    // Get the game definition to know what to look for
+    #[allow(unused_variables)]
+    let game = game_definitions::get_game_by_id(&game_id)
+        .ok_or_else(|| format!("Unknown game: {}", game_id))?;
+    
+    // Get the current user's username
+    let username = std::env::var("USER").unwrap_or_else(|_| "username".to_string());
+    
+    // Base paths for CrossOver bottles
+    let base_paths = vec![
+        format!("/Users/{}/Library/Application Support/CrossOver/Bottles", username),
+        "/Library/Application Support/CrossOver/Bottles".to_string(),
+    ];
+    
+    // Scan each base path
+    for base_path in base_paths {
+        let base = std::path::Path::new(&base_path);
+        if !base.exists() {
+            continue;
+        }
+        
+        // Read all bottle directories
+        if let Ok(entries) = std::fs::read_dir(base) {
+            for entry in entries.flatten() {
+                if !entry.path().is_dir() {
+                    continue;
+                }
+                
+                let bottle_path = entry.path();
+                #[allow(unused_variables)]
+                let bottle_name = bottle_path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                
+                // Search common game installation locations within this bottle
+                let search_patterns = vec![
+                    "drive_c/GOG Games",
+                    "drive_c/Program Files (x86)/Steam/steamapps/common",
+                    "drive_c/Program Files/Steam/steamapps/common",
+                    "drive_c/Program Files (x86)/GOG Galaxy/Games",
+                    "drive_c/Program Files/GOG Galaxy/Games",
+                    "drive_c/Program Files/Epic Games",
+                    "drive_c/Program Files (x86)/Epic Games",
+                    "drive_c/Program Files",
+                    "drive_c/Program Files (x86)",
+                ];
+                
+                for pattern in search_patterns {
+                    let search_path = bottle_path.join(pattern);
+                    if !search_path.exists() {
+                        continue;
+                    }
+                    
+                    // Search for the game in this location
+                    if let Ok(game_dirs) = std::fs::read_dir(&search_path) {
+                        for game_dir in game_dirs.flatten() {
+                            if !game_dir.path().is_dir() {
+                                continue;
+                            }
+                            
+                            // Check if this directory contains the game
+                            if let Some(detected) = game_definitions::detect_game_from_path(&game_dir.path()) {
+                                if detected.id == game_id {
+                                    return Ok(Some(game_dir.path().to_string_lossy().to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     Ok(None)
 }
 
@@ -3528,14 +3606,9 @@ fn determine_install_path_for_file(
     relative_path: &std::path::Path,
     game_id: &str,
 ) -> Result<std::path::PathBuf, String> {
-    // Get game definition to understand the game's mod structure
-    let game_def = match game_definitions::get_supported_games().get(game_id) {
-        Some(def) => def.clone(),
-        None => return Err(format!("Unsupported game: {}", game_id)),
-    };
-
-    // Most mods already have the correct directory structure (e.g., bin/x64/file.dll)
-    // We should preserve this structure and install directly to game_dir
+    // Get game definition with its resolver
+    let game_def = game_definitions::get_game_by_id(game_id)
+        .ok_or_else(|| format!("Unsupported game: {}", game_id))?;
 
     // Normalize the path to ensure correct casing for game directories
     let normalized_path = normalize_game_path(relative_path);
@@ -3547,203 +3620,14 @@ fn determine_install_path_for_file(
         .unwrap_or("")
         .to_lowercase();
 
-    // Game-specific installation logic
-    match game_id {
-        "cyberpunk2077" => determine_install_path_cyberpunk(game_dir, &normalized_path, &path_str, &file_name, relative_path),
-        "skyrim" | "skyrimse" => determine_install_path_skyrim(game_dir, &normalized_path, &path_str, &file_name),
-        _ => {
-            // Generic installation for unknown games - preserve structure or use first mod directory
-            if let Some(first_mod_dir) = game_def.mod_directories.first() {
-                Ok(game_dir.join(first_mod_dir).join(relative_path.file_name().unwrap()))
-            } else {
-                Ok(game_dir.join(normalized_path))
-            }
-        }
-    }
-}
-
-// Cyberpunk 2077 specific installation logic
-fn determine_install_path_cyberpunk(
-    game_dir: &std::path::Path,
-    normalized_path: &std::path::Path,
-    path_str: &str,
-    file_name: &str,
-    relative_path: &std::path::Path,
-) -> Result<std::path::PathBuf, String> {
-    // Check if the path already starts with a known game directory
-    // Common Cyberpunk 2077 mod structures:
-    // - bin/x64/...              (RED4ext/CET mods)
-    // - r6/scripts/...           (Redscript mods)
-    // - archive/pc/mod/...       (Archive mods)
-    // - engine/config/...        (Config mods)
-    // - mods/...                 (REDmod - official CDPR mod system)
-    // - red4ext/plugins/...      (RED4ext plugins)
-
-    if path_str.starts_with("mods/") || path_str.starts_with("mods\\") {
-        // REDmod structure: mods/modname/...
-        // These mods require launching with -modded parameter
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    if path_str.starts_with("bin/") || path_str.starts_with("bin\\") {
-        // Path already has correct structure: bin/x64/file.dll (with normalized casing)
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    if path_str.starts_with("r6/") || path_str.starts_with("r6\\") {
-        // Path already has correct structure: r6/scripts/file.reds (with normalized casing)
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    if path_str.starts_with("archive/") || path_str.starts_with("archive\\") {
-        // Path already has correct structure: archive/pc/mod/file.archive (with normalized casing)
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    if path_str.starts_with("engine/") || path_str.starts_with("engine\\") {
-        // Path already has correct structure: engine/config/... (with normalized casing)
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    if path_str.starts_with("red4ext/") || path_str.starts_with("red4ext\\") {
-        // Path already has correct structure: red4ext/plugins/... (with normalized casing)
-        return Ok(game_dir.join(normalized_path));
-    }
-
-    // Special handling for RED4ext core files (case-insensitive)
-    if file_name == "red4ext.dll" {
-        // RED4ext.dll goes in bin/x64/ (preserve original casing)
-        let original_name = relative_path.file_name().unwrap().to_string_lossy();
-        println!("🔴 Detected RED4ext core DLL: {} → bin/x64/", original_name);
-        return Ok(game_dir
-            .join("bin")
-            .join("x64")
-            .join(original_name.as_ref()));
-    }
-
-    // Special handling for version.dll (RED4ext loader)
-    if file_name == "version.dll" {
-        // version.dll MUST go in game root directory, not bin/x64/
-        let original_name = relative_path.file_name().unwrap().to_string_lossy();
-        println!("🔴 Detected RED4ext loader (version.dll) → Game root directory");
-        return Ok(game_dir.join(original_name.as_ref()));
-    }
-
-    // Handle RED4ext configuration and other files
-    if path_str.contains("red4ext")
-        && !path_str.starts_with("red4ext/")
-        && !path_str.starts_with("red4ext\\")
-    {
-        // Files that contain "red4ext" but aren't in proper structure - place in red4ext/
-        if path_str.ends_with(".toml") || path_str.ends_with(".ini") || path_str.ends_with(".txt") {
-            return Ok(game_dir
-                .join("red4ext")
-                .join(relative_path.file_name().unwrap()));
-        }
-    }
-
-    // If the path doesn't start with a known directory, try to infer from file type
-    if path_str.ends_with(".archive") {
-        // Standalone .archive file -> archive/pc/mod/
-        return Ok(game_dir
-            .join("archive")
-            .join("pc")
-            .join("mod")
-            .join(relative_path.file_name().unwrap()));
-    }
-
-    if path_str.ends_with(".reds") {
-        // Standalone .reds file -> r6/scripts/
-        return Ok(game_dir
-            .join("r6")
-            .join("scripts")
-            .join(relative_path.file_name().unwrap()));
-    }
-
-    if path_str.ends_with(".dll") || path_str.ends_with(".exe") {
-        // Check if this might be a RED4ext plugin
-        if path_str.contains("red4ext")
-            || relative_path
-                .parent()
-                .map(|p| p.to_string_lossy().to_lowercase().contains("plugins"))
-                .unwrap_or(false)
-        {
-            // RED4ext plugin -> red4ext/plugins/
-            return Ok(game_dir
-                .join("red4ext")
-                .join("plugins")
-                .join(relative_path.file_name().unwrap()));
-        }
-
-        // Regular binary -> bin/x64/
-        return Ok(game_dir
-            .join("bin")
-            .join("x64")
-            .join(relative_path.file_name().unwrap()));
-    }
-
-    // For anything else, preserve the normalized structure
-    // This handles mods with custom folder structures (with correct casing for known directories)
-    Ok(game_dir.join(normalized_path))
-}
-
-// Skyrim/Skyrim SE specific installation logic
-fn determine_install_path_skyrim(
-    game_dir: &std::path::Path,
-    normalized_path: &std::path::Path,
-    path_str: &str,
-    file_name: &str,
-) -> Result<std::path::PathBuf, String> {
-    // Skyrim mods typically install to the Data directory
-    // Common structures:
-    // - Data/...                (All mod files go here)
-    // - Meshes/...             (3D models)
-    // - Textures/...           (Texture files)
-    // - Scripts/...            (Papyrus scripts)
-    // - Sound/...              (Audio files)
-    // - SKSE/Plugins/...       (SKSE plugins for Skyrim SE)
-    
-    // If path already starts with Data/, preserve structure
-    if path_str.starts_with("data/") || path_str.starts_with("data\\") {
-        return Ok(game_dir.join(normalized_path));
-    }
-    
-    // Check for common Skyrim mod subdirectories
-    let skyrim_dirs = [
-        "meshes", "textures", "scripts", "sound", "music", "video",
-        "interface", "strings", "seq", "shadersfx", "skse", "asi",
-        "lodsettings", "grass", "vis", "distantlod"
-    ];
-    
-    for dir in &skyrim_dirs {
-        if path_str.starts_with(&format!("{}/", dir)) || path_str.starts_with(&format!("{}\\", dir)) {
-            // Path starts with a known Skyrim directory - install to Data/path
-            return Ok(game_dir.join("Data").join(normalized_path));
-        }
-    }
-    
-    // Check file extensions to determine placement
-    if file_name.ends_with(".esp") || file_name.ends_with(".esm") || file_name.ends_with(".esl") {
-        // Plugin files go directly in Data/
-        return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
-    }
-    
-    if file_name.ends_with(".dll") {
-        // DLL files might be SKSE plugins
-        if path_str.contains("skse") || path_str.contains("plugins") {
-            return Ok(game_dir.join("Data").join("SKSE").join("Plugins").join(normalized_path.file_name().unwrap()));
-        }
-        // Other DLLs might go in game root
-        return Ok(game_dir.join(normalized_path.file_name().unwrap()));
-    }
-    
-    if file_name.ends_with(".bsa") || file_name.ends_with(".ba2") {
-        // Archive files go in Data/
-        return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
-    }
-    
-    // Default: install to Data/ directory for unknown files
-    Ok(game_dir.join("Data").join(normalized_path))
+    // Delegate to the game-specific resolver (trait dispatch)
+    game_def.resolver.resolve_install_path(
+        game_dir,
+        relative_path,
+        &normalized_path,
+        &path_str,
+        &file_name,
+    )
 }
 
 #[tauri::command]
@@ -3822,8 +3706,25 @@ fn check_and_run_first_setup(state: State<'_, AppState>) -> Result<String, Strin
 
 #[allow(unused_variables)] // app is used in cfg(target_os = "macos") code
 fn main() {
-    let mod_manager = ModManager::new();
     let app_settings = AppSettings::new();
+    
+    // Initialize ModManager with the current game from settings
+    let current_game = {
+        let settings = app_settings.get_settings();
+        if settings.current_game.is_empty() {
+            "cyberpunk2077".to_string()
+        } else {
+            settings.current_game.clone()
+        }
+    };
+    let mut mod_manager = ModManager::new_for_game(&current_game);
+    
+    // Deduplicate mods on startup (clean up any duplicates from previous bugs)
+    let removed = mod_manager.deduplicate_mods();
+    if removed > 0 {
+        println!("🧹 Removed {} duplicate mod entries from database", removed);
+        mod_manager.save_database().ok();
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -3843,6 +3744,7 @@ fn main() {
             get_settings,
             save_settings,
             auto_detect_game_path,
+            auto_detect_game_in_bottles,
             add_log,
             add_log_entry,
             get_logs,
@@ -3925,23 +3827,24 @@ fn main() {
                                 window.emit("nxm-url-received", url).ok();
                                 window.show().ok();
                                 window.set_focus().ok();
+                            } else {
+                                // Only call backend directly if no window is available
+                                // This prevents duplicate installations
+                                println!("⚠️ DEEP LINK: No window found, calling backend directly as fallback");
+                                let url_clone = url.clone();
+                                let app_clone = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    println!("🔥 DEEP LINK: Calling handle_nxm_url directly (fallback)");
+                                    match handle_nxm_url_internal(url_clone.to_string(), app_clone)
+                                        .await
+                                    {
+                                        Ok(_) => println!(
+                                            "🔥 DEEP LINK: handle_nxm_url completed successfully"
+                                        ),
+                                        Err(e) => println!("🔥 DEEP LINK ERROR: {}", e),
+                                    }
+                                });
                             }
-
-                            // Also call handle_nxm_url directly as a fallback
-                            // (in case the frontend listener isn't set up yet)
-                            let url_clone = url.clone();
-                            let app_clone = app_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                println!("🔥 DEEP LINK: Calling handle_nxm_url directly");
-                                match handle_nxm_url_internal(url_clone.to_string(), app_clone)
-                                    .await
-                                {
-                                    Ok(_) => println!(
-                                        "🔥 DEEP LINK: handle_nxm_url completed successfully"
-                                    ),
-                                    Err(e) => println!("🔥 DEEP LINK ERROR: {}", e),
-                                }
-                            });
                         }
                     }
                 });

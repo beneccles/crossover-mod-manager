@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   open as openDialog,
   save as saveDialog,
@@ -41,6 +42,7 @@ function Settings() {
         directory: true,
         multiple: false,
         title: "Select Game Installation Directory",
+        parent: getCurrentWindow(),
       });
 
       if (selected) {
@@ -57,6 +59,7 @@ function Settings() {
         directory: true,
         multiple: false,
         title: "Select Mod Storage Directory",
+        parent: getCurrentWindow(),
       });
 
       if (selected) {
@@ -208,6 +211,7 @@ function Settings() {
             extensions: ["json"],
           },
         ],
+        parent: getCurrentWindow(),
       });
 
       console.log("Save dialog returned:", filePath);
@@ -243,6 +247,7 @@ function Settings() {
             extensions: ["json"],
           },
         ],
+        parent: getCurrentWindow(),
       });
 
       if (!selected) {
@@ -258,6 +263,7 @@ function Settings() {
         {
           title: "Import Mod Profile",
           kind: "info",
+          parent: getCurrentWindow(),
         }
       );
 

@@ -8,6 +8,35 @@
   overflow: hidden;
 }
 
+.current-game-header {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, rgba(255, 0, 81, 0.1), rgba(255, 0, 81, 0.05));
+  border-bottom: 1px solid rgba(255, 0, 81, 0.3);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.game-badge {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--cyber-red-bright);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 0.4rem 1rem;
+  background: rgba(255, 0, 81, 0.1);
+  border: 1px solid var(--cyber-red);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.game-badge::before {
+  content: '🎮';
+  font-size: 1rem;
+}
+
 .mod-list-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--cyber-red);

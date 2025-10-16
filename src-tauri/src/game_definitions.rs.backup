@@ -218,6 +218,193 @@ impl GamePathResolver for SkyrimResolver {
 // GAME DEFINITIONS
 // ============================================================================
 
+}
+
+// ============================================================================
+// CYBERPUNK 2077 RESOLVER
+// ============================================================================
+
+struct Cyberpunk2077Resolver;
+
+impl GamePathResolver for Cyberpunk2077Resolver {
+    fn resolve_install_path(
+        &self,
+        game_dir: &Path,
+        relative_path: &Path,
+        normalized_path: &Path,
+        path_str: &str,
+        file_name: &str,
+    ) -> Result<PathBuf, String> {
+        // Check if the path already starts with a known game directory
+        // Common Cyberpunk 2077 mod structures:
+        // - bin/x64/...              (RED4ext/CET mods)
+        // - r6/scripts/...           (Redscript mods)
+        // - archive/pc/mod/...       (Archive mods)
+        // - engine/config/...        (Config mods)
+        // - mods/...                 (REDmod - official CDPR mod system)
+        // - red4ext/plugins/...      (RED4ext plugins)
+
+        if path_str.starts_with("mods/") || path_str.starts_with("mods\\") {
+            // REDmod structure: mods/modname/...
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        if path_str.starts_with("bin/") || path_str.starts_with("bin\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        if path_str.starts_with("r6/") || path_str.starts_with("r6\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        if path_str.starts_with("archive/") || path_str.starts_with("archive\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        if path_str.starts_with("engine/") || path_str.starts_with("engine\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        if path_str.starts_with("red4ext/") || path_str.starts_with("red4ext\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+
+        // Special handling for RED4ext core files (case-insensitive)
+        if file_name == "red4ext.dll" {
+            let original_name = relative_path.file_name().unwrap().to_string_lossy();
+            println!("🔴 Detected RED4ext core DLL: {} → bin/x64/", original_name);
+            return Ok(game_dir
+                .join("bin")
+                .join("x64")
+                .join(original_name.as_ref()));
+        }
+
+        // Special handling for version.dll (RED4ext loader)
+        if file_name == "version.dll" {
+            let original_name = relative_path.file_name().unwrap().to_string_lossy();
+            println!("🔴 Detected RED4ext loader (version.dll) → Game root directory");
+            return Ok(game_dir.join(original_name.as_ref()));
+        }
+
+        // Handle RED4ext configuration and other files
+        if path_str.contains("red4ext")
+            && !path_str.starts_with("red4ext/")
+            && !path_str.starts_with("red4ext\\")
+        {
+            if path_str.ends_with(".toml") || path_str.ends_with(".ini") || path_str.ends_with(".txt") {
+                return Ok(game_dir
+                    .join("red4ext")
+                    .join(relative_path.file_name().unwrap()));
+            }
+        }
+
+        // If the path doesn't start with a known directory, try to infer from file type
+        if path_str.ends_with(".archive") {
+            return Ok(game_dir
+                .join("archive")
+                .join("pc")
+                .join("mod")
+                .join(relative_path.file_name().unwrap()));
+        }
+
+        if path_str.ends_with(".reds") {
+            return Ok(game_dir
+                .join("r6")
+                .join("scripts")
+                .join(relative_path.file_name().unwrap()));
+        }
+
+        if path_str.ends_with(".dll") || path_str.ends_with(".exe") {
+            if path_str.contains("red4ext")
+                || relative_path
+                    .parent()
+                    .map(|p| p.to_string_lossy().to_lowercase().contains("plugins"))
+                    .unwrap_or(false)
+            {
+                return Ok(game_dir
+                    .join("red4ext")
+                    .join("plugins")
+                    .join(relative_path.file_name().unwrap()));
+            }
+
+            return Ok(game_dir
+                .join("bin")
+                .join("x64")
+                .join(relative_path.file_name().unwrap()));
+        }
+
+        // For anything else, preserve the normalized structure
+        Ok(game_dir.join(normalized_path))
+    }
+}
+
+// ============================================================================
+// SKYRIM RESOLVER
+// ============================================================================
+
+struct SkyrimResolver;
+
+impl GamePathResolver for SkyrimResolver {
+    fn resolve_install_path(
+        &self,
+        game_dir: &Path,
+        _relative_path: &Path,
+        normalized_path: &Path,
+        path_str: &str,
+        file_name: &str,
+    ) -> Result<PathBuf, String> {
+        // Skyrim mods typically install to the Data directory
+        // Common structures:
+        // - Data/...                (All mod files go here)
+        // - Meshes/...             (3D models)
+        // - Textures/...           (Texture files)
+        // - Scripts/...            (Papyrus scripts)
+        // - Sound/...              (Audio files)
+        // - SKSE/Plugins/...       (SKSE plugins for Skyrim SE)
+        
+        // If path already starts with Data/, preserve structure
+        if path_str.starts_with("data/") || path_str.starts_with("data\\") {
+            return Ok(game_dir.join(normalized_path));
+        }
+        
+        // Check for common Skyrim mod subdirectories
+        let skyrim_dirs = [
+            "meshes", "textures", "scripts", "sound", "music", "video",
+            "interface", "strings", "seq", "shadersfx", "skse", "asi",
+            "lodsettings", "grass", "vis", "distantlod"
+        ];
+        
+        for dir in &skyrim_dirs {
+            if path_str.starts_with(&format!("{}/", dir)) || path_str.starts_with(&format!("{}\\", dir)) {
+                return Ok(game_dir.join("Data").join(normalized_path));
+            }
+        }
+        
+        // Check file extensions to determine placement
+        if file_name.ends_with(".esp") || file_name.ends_with(".esm") || file_name.ends_with(".esl") {
+            return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
+        }
+        
+        if file_name.ends_with(".dll") {
+            if path_str.contains("skse") || path_str.contains("plugins") {
+                return Ok(game_dir.join("Data").join("SKSE").join("Plugins").join(normalized_path.file_name().unwrap()));
+            }
+            return Ok(game_dir.join(normalized_path.file_name().unwrap()));
+        }
+        
+        if file_name.ends_with(".bsa") || file_name.ends_with(".ba2") {
+            return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
+        }
+        
+        // Default: install to Data/ directory for unknown files
+        Ok(game_dir.join("Data").join(normalized_path))
+    }
+}
+
+// ============================================================================
+// GAME DEFINITION CONSTRUCTORS
+// ============================================================================
+
 impl GameDefinition {
     pub fn cyberpunk2077() -> Self {
         Self {
