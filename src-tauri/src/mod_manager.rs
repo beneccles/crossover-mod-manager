@@ -16,6 +16,10 @@ pub struct ModInfo {
     pub file_id: Option<String>,
     pub enabled: bool,
     pub files: Vec<String>,
+    
+    // NEW: Game association
+    #[serde(default)]
+    pub game_id: String,
 
     // File ownership tracking for conflict detection
     // Map of relative file path -> conflict info
@@ -68,20 +72,41 @@ struct ModDatabase {
 pub struct ModManager {
     database_path: PathBuf,
     mods: Vec<ModInfo>,
+    current_game: String,
 }
 
 impl ModManager {
     pub fn new() -> Self {
-        let database_path = Self::get_database_path();
+        Self::new_for_game("cyberpunk2077")
+    }
+    
+    pub fn new_for_game(game_id: &str) -> Self {
+        let database_path = Self::get_database_path_for_game(game_id);
         let mods = Self::load_database(&database_path);
 
         Self {
             database_path,
             mods,
+            current_game: game_id.to_string(),
         }
+    }
+    
+    pub fn switch_game(&mut self, game_id: &str) -> Result<(), String> {
+        self.database_path = Self::get_database_path_for_game(game_id);
+        self.mods = Self::load_database(&self.database_path);
+        self.current_game = game_id.to_string();
+        Ok(())
+    }
+    
+    pub fn get_current_game(&self) -> &str {
+        &self.current_game
     }
 
     fn get_database_path() -> PathBuf {
+        Self::get_database_path_for_game("cyberpunk2077")
+    }
+    
+    fn get_database_path_for_game(game_id: &str) -> PathBuf {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
         let app_dir = home.join(".crossover-mod-manager");
 
@@ -89,7 +114,7 @@ impl ModManager {
             fs::create_dir_all(&app_dir).ok();
         }
 
-        app_dir.join("mods.json")
+        app_dir.join(format!("mods_{}.json", game_id))
     }
 
     fn load_database(path: &Path) -> Vec<ModInfo> {

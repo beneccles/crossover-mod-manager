@@ -1,0 +1,234 @@
+.game-selector {
+  margin: 20px 0;
+  padding: 20px;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.game-selector h3 {
+  margin: 0 0 20px 0;
+  color: #ffffff;
+  font-size: 1.2em;
+}
+
+.no-games {
+  padding: 40px;
+  text-align: center;
+  color: #888;
+}
+
+.current-game-section {
+  margin-bottom: 25px;
+}
+
+.current-game-section label {
+  display: block;
+  margin-bottom: 8px;
+  color: #aaa;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.current-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #1e1e1e;
+  border-radius: 6px;
+  border: 2px solid #3a3a3a;
+}
+
+.current-game .game-name {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.current-game .active-badge {
+  padding: 4px 12px;
+  background: #28a745;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.current-game .no-game {
+  color: #888;
+  font-style: italic;
+}
+
+.configured-games-section {
+  margin-bottom: 25px;
+}
+
+.configured-games-section label {
+  display: block;
+  margin-bottom: 12px;
+  color: #aaa;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  background: #1e1e1e;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  transition: all 0.2s;
+}
+
+.game-item:hover {
+  background: #252525;
+  border-color: #4a4a4a;
+}
+
+.game-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.game-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.game-info .game-name {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 1em;
+}
+
+.game-info .game-path {
+  color: #888;
+  font-size: 0.85em;
+  font-family: monospace;
+}
+
+.current-indicator {
+  padding: 2px 8px;
+  background: #0d6efd;
+  color: white;
+  border-radius: 10px;
+  font-size: 0.75em;
+  font-weight: 600;
+}
+
+.game-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.game-actions button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.game-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch-button {
+  background: #0d6efd;
+  color: white;
+}
+
+.switch-button:hover:not(:disabled) {
+  background: #0b5ed7;
+}
+
+.remove-button {
+  background: #dc3545;
+  color: white;
+}
+
+.remove-button:hover:not(:disabled) {
+  background: #bb2d3b;
+}
+
+.add-game-section {
+  padding-top: 20px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.add-game-section label {
+  display: block;
+  margin-bottom: 12px;
+  color: #aaa;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.add-game-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.add-game-controls select {
+  flex: 1;
+  padding: 10px;
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.add-game-controls select:focus {
+  outline: none;
+  border-color: #0d6efd;
+}
+
+.add-game-controls select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-button {
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.add-button:hover:not(:disabled) {
+  background: #218838;
+}
+
+.add-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #28a745;
+}
+
+.help-text {
+  margin: 8px 0 0 0;
+  color: #888;
+  font-size: 0.85em;
+  line-height: 1.4;
+}

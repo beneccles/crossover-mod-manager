@@ -2,13 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod archive_extractor;
+mod game_definitions;
 mod mod_manager;
 mod nexusmods_api;
 mod settings;
 
+use game_definitions::GameDefinition;
 use mod_manager::{ModInfo, ModManager};
 use serde::{Deserialize, Serialize};
-use settings::{AppSettings, Settings};
+use settings::{AppSettings, GameConfig, Settings};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -238,9 +240,16 @@ fn export_mod_profile(file_path: String, state: State<AppState>) -> Result<Strin
 
     // Get current game name from settings
     let game_name = {
-        let _settings = state.settings.lock().map_err(|e| e.to_string())?;
-        // For now, hardcode Cyberpunk 2077, later this will be dynamic
-        "Cyberpunk 2077".to_string()
+        let settings_lock = state.settings.lock().map_err(|e| e.to_string())?;
+        let settings = settings_lock.get_settings();
+        
+        if settings.current_game.is_empty() {
+            "Cyberpunk 2077".to_string()
+        } else {
+            game_definitions::get_game_by_id(&settings.current_game)
+                .map(|g| g.name)
+                .unwrap_or_else(|| "Cyberpunk 2077".to_string())
+        }
     };
 
     // Export profile
@@ -469,6 +478,141 @@ async fn import_mod_profile(
     }
 
     Ok(summary)
+}
+
+#[tauri::command]
+fn get_supported_games() -> Result<Vec<GameDefinition>, String> {
+    let games = game_definitions::get_supported_games();
+    Ok(games.into_values().collect())
+}
+
+#[tauri::command]
+fn switch_game(
+    game_id: String,
+    state: State<AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    // Update mod manager to new game
+    {
+        let mut manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+        manager.switch_game(&game_id)?;
+    }
+    
+    // Update settings
+    {
+        let mut app_settings = state.settings.lock().map_err(|e| e.to_string())?;
+        let mut settings = app_settings.get_settings();
+        settings.current_game = game_id.clone();
+        app_settings.save_settings(settings)?;
+    }
+    
+    add_log(
+        format!("🎮 Switched to game: {}", game_id),
+        "info".to_string(),
+        "system".to_string(),
+        state.clone(),
+    )?;
+    
+    // Emit event to refresh UI
+    if let Some(window) = app.get_webview_window("main") {
+        window.emit("game-switched", &game_id).ok();
+        window.emit("mods-updated", ()).ok();
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn detect_game_from_path(path: String) -> Result<Option<GameDefinition>, String> {
+    let path_buf = PathBuf::from(&path);
+    Ok(game_definitions::detect_game_from_path(&path_buf))
+}
+
+#[tauri::command]
+fn add_game(
+    game_id: String,
+    game_path: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut app_settings = state.settings.lock().map_err(|e| e.to_string())?;
+    let mut settings = app_settings.get_settings();
+    
+    // Verify the game path is valid
+    let game_def = game_definitions::get_game_by_id(&game_id)
+        .ok_or_else(|| format!("Unknown game ID: {}", game_id))?;
+    
+    let path = PathBuf::from(&game_path);
+    let detected = game_definitions::detect_game_from_path(&path);
+    
+    if let Some(detected_game) = detected {
+        if detected_game.id != game_id {
+            return Err(format!(
+                "Path contains {} but you selected {}",
+                detected_game.name, game_def.name
+            ));
+        }
+    } else {
+        return Err(format!("Could not detect {} at the specified path", game_def.name));
+    }
+    
+    // Add game to settings
+    let game_config = GameConfig {
+        game_path: game_path.clone(),
+        game_id: game_id.clone(),
+    };
+    
+    settings.games.insert(game_id.clone(), game_config);
+    
+    // If this is the first game, make it current
+    if settings.current_game.is_empty() {
+        settings.current_game = game_id.clone();
+    }
+    
+    app_settings.save_settings(settings)?;
+    
+    add_log(
+        format!("✅ Added game: {} at {}", game_def.name, game_path),
+        "success".to_string(),
+        "system".to_string(),
+        state.clone(),
+    )?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn remove_game(
+    game_id: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut app_settings = state.settings.lock().map_err(|e| e.to_string())?;
+    let mut settings = app_settings.get_settings();
+    
+    if !settings.games.contains_key(&game_id) {
+        return Err(format!("Game {} is not configured", game_id));
+    }
+    
+    settings.games.remove(&game_id);
+    
+    // If removing current game, switch to another one
+    if settings.current_game == game_id {
+        if let Some(next_game) = settings.games.keys().next() {
+            settings.current_game = next_game.clone();
+        } else {
+            settings.current_game = String::new();
+        }
+    }
+    
+    app_settings.save_settings(settings)?;
+    
+    add_log(
+        format!("🗑️ Removed game: {}", game_id),
+        "info".to_string(),
+        "system".to_string(),
+        state.clone(),
+    )?;
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -1400,11 +1544,24 @@ async fn install_mod_from_nxm(
     let mut archive_path: Option<std::path::PathBuf> = None;
     let mut _extract_dir: Option<std::path::PathBuf> = None;
 
-    // Get game path from settings
-    let game_path = {
+    // Get game path and current game from settings
+    let (game_path, current_game_id) = {
         let settings_guard = state.settings.lock().map_err(|e| e.to_string())?;
         let settings = settings_guard.get_settings();
-        settings.game_path.clone()
+        
+        let game_id = if settings.current_game.is_empty() {
+            "cyberpunk2077".to_string()
+        } else {
+            settings.current_game.clone()
+        };
+        
+        let path = if let Some(game_config) = settings.games.get(&game_id) {
+            game_config.game_path.clone()
+        } else {
+            settings.game_path.clone() // Fallback to legacy field
+        };
+        
+        (path, game_id)
     };
 
     if game_path.is_empty() {
@@ -2652,6 +2809,7 @@ async fn install_mod_from_nxm(
         file_id: Some(file_id.clone()),
         enabled: true,
         files: installed_files.clone(),
+        game_id: current_game_id.clone(),
         file_conflicts: std::collections::HashMap::new(), // Will be populated if conflicts exist
         installed_at: Some(chrono::Utc::now().to_rfc3339()),
     };
@@ -3598,7 +3756,12 @@ fn main() {
             install_mod_from_nxm,
             clean_temp_files,
             export_mod_profile,
-            import_mod_profile
+            import_mod_profile,
+            get_supported_games,
+            switch_game,
+            detect_game_from_path,
+            add_game,
+            remove_game
         ])
         .setup(|app| {
             // Clean up orphaned temporary files from previous sessions

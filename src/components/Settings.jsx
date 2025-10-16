@@ -5,6 +5,7 @@ import {
   save as saveDialog,
   ask as askDialog,
 } from "@tauri-apps/plugin-dialog";
+import GameSelector from "./GameSelector";
 import "./Settings.css";
 
 function Settings() {
@@ -281,7 +282,11 @@ function Settings() {
         <h2>Settings</h2>
 
         <div className="setting-section">
-          <h3>Game Configuration</h3>
+          <GameSelector onGameChange={() => loadSettings()} />
+        </div>
+
+        <div className="setting-section">
+          <h3>Game Configuration (Legacy)</h3>
 
           <div className="setting-row">
             <label>Game Installation Path:</label>
