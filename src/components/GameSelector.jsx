@@ -26,8 +26,7 @@ function GameSelector({ onGameChange }) {
         ([id, config]) => ({
           id,
           ...config,
-          name:
-            games.find((g) => g.id === id)?.name || id,
+          name: games.find((g) => g.id === id)?.name || id,
         })
       );
       setConfiguredGames(configured);
@@ -43,7 +42,9 @@ function GameSelector({ onGameChange }) {
       await invoke("switch_game", { gameId });
       setCurrentGame(gameId);
       if (onGameChange) onGameChange(gameId);
-      alert(`✓ Switched to ${supportedGames.find((g) => g.id === gameId)?.name}`);
+      alert(
+        `✓ Switched to ${supportedGames.find((g) => g.id === gameId)?.name}`
+      );
       await loadGames();
     } catch (error) {
       alert(`❌ Failed to switch game: ${error}`);
@@ -71,7 +72,9 @@ function GameSelector({ onGameChange }) {
       setLoading(true);
 
       // Detect game at path
-      const detected = await invoke("detect_game_from_path", { path: gamePath });
+      const detected = await invoke("detect_game_from_path", {
+        path: gamePath,
+      });
 
       if (!detected) {
         alert(
@@ -224,7 +227,8 @@ function GameSelector({ onGameChange }) {
             </button>
           </div>
           <p className="help-text">
-            Select a game and browse to its installation folder. CMM will auto-detect the game type.
+            Select a game and browse to its installation folder. CMM will
+            auto-detect the game type.
           </p>
         </div>
       )}

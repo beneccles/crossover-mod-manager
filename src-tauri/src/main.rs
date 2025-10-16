@@ -2102,7 +2102,7 @@ async fn install_mod_from_nxm(
             }
 
             // Determine installation path based on file type (uses normalized paths)
-            let mut install_path = determine_install_path_for_file(game_dir, relative_path)?;
+            let mut install_path = determine_install_path_for_file(game_dir, relative_path, &current_game_id)?;
 
             // Apply Unicode sanitization to the final filename if needed
             if let Some(sanitized) = needs_sanitization(filename) {
@@ -3515,7 +3515,14 @@ fn check_case_mismatch(relative_path: &std::path::Path) -> (bool, std::path::Pat
 fn determine_install_path_for_file(
     game_dir: &std::path::Path,
     relative_path: &std::path::Path,
+    game_id: &str,
 ) -> Result<std::path::PathBuf, String> {
+    // Get game definition to understand the game's mod structure
+    let game_def = match game_definitions::get_supported_games().get(game_id) {
+        Some(def) => def.clone(),
+        None => return Err(format!("Unsupported game: {}", game_id)),
+    };
+
     // Most mods already have the correct directory structure (e.g., bin/x64/file.dll)
     // We should preserve this structure and install directly to game_dir
 
@@ -3529,6 +3536,29 @@ fn determine_install_path_for_file(
         .unwrap_or("")
         .to_lowercase();
 
+    // Game-specific installation logic
+    match game_id {
+        "cyberpunk2077" => determine_install_path_cyberpunk(game_dir, &normalized_path, &path_str, &file_name, relative_path),
+        "skyrim" | "skyrimse" => determine_install_path_skyrim(game_dir, &normalized_path, &path_str, &file_name),
+        _ => {
+            // Generic installation for unknown games - preserve structure or use first mod directory
+            if let Some(first_mod_dir) = game_def.mod_directories.first() {
+                Ok(game_dir.join(first_mod_dir).join(relative_path.file_name().unwrap()))
+            } else {
+                Ok(game_dir.join(normalized_path))
+            }
+        }
+    }
+}
+
+// Cyberpunk 2077 specific installation logic
+fn determine_install_path_cyberpunk(
+    game_dir: &std::path::Path,
+    normalized_path: &std::path::Path,
+    path_str: &str,
+    file_name: &str,
+    relative_path: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
     // Check if the path already starts with a known game directory
     // Common Cyberpunk 2077 mod structures:
     // - bin/x64/...              (RED4ext/CET mods)
@@ -3644,6 +3674,65 @@ fn determine_install_path_for_file(
     // For anything else, preserve the normalized structure
     // This handles mods with custom folder structures (with correct casing for known directories)
     Ok(game_dir.join(normalized_path))
+}
+
+// Skyrim/Skyrim SE specific installation logic
+fn determine_install_path_skyrim(
+    game_dir: &std::path::Path,
+    normalized_path: &std::path::Path,
+    path_str: &str,
+    file_name: &str,
+) -> Result<std::path::PathBuf, String> {
+    // Skyrim mods typically install to the Data directory
+    // Common structures:
+    // - Data/...                (All mod files go here)
+    // - Meshes/...             (3D models)
+    // - Textures/...           (Texture files)
+    // - Scripts/...            (Papyrus scripts)
+    // - Sound/...              (Audio files)
+    // - SKSE/Plugins/...       (SKSE plugins for Skyrim SE)
+    
+    // If path already starts with Data/, preserve structure
+    if path_str.starts_with("data/") || path_str.starts_with("data\\") {
+        return Ok(game_dir.join(normalized_path));
+    }
+    
+    // Check for common Skyrim mod subdirectories
+    let skyrim_dirs = [
+        "meshes", "textures", "scripts", "sound", "music", "video",
+        "interface", "strings", "seq", "shadersfx", "skse", "asi",
+        "lodsettings", "grass", "vis", "distantlod"
+    ];
+    
+    for dir in &skyrim_dirs {
+        if path_str.starts_with(&format!("{}/", dir)) || path_str.starts_with(&format!("{}\\", dir)) {
+            // Path starts with a known Skyrim directory - install to Data/path
+            return Ok(game_dir.join("Data").join(normalized_path));
+        }
+    }
+    
+    // Check file extensions to determine placement
+    if file_name.ends_with(".esp") || file_name.ends_with(".esm") || file_name.ends_with(".esl") {
+        // Plugin files go directly in Data/
+        return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
+    }
+    
+    if file_name.ends_with(".dll") {
+        // DLL files might be SKSE plugins
+        if path_str.contains("skse") || path_str.contains("plugins") {
+            return Ok(game_dir.join("Data").join("SKSE").join("Plugins").join(normalized_path.file_name().unwrap()));
+        }
+        // Other DLLs might go in game root
+        return Ok(game_dir.join(normalized_path.file_name().unwrap()));
+    }
+    
+    if file_name.ends_with(".bsa") || file_name.ends_with(".ba2") {
+        // Archive files go in Data/
+        return Ok(game_dir.join("Data").join(normalized_path.file_name().unwrap()));
+    }
+    
+    // Default: install to Data/ directory for unknown files
+    Ok(game_dir.join("Data").join(normalized_path))
 }
 
 #[tauri::command]

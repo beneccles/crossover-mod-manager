@@ -27,6 +27,8 @@ impl GameDefinition {
                 "archive/pc/mod".to_string(),
                 "bin/x64/plugins".to_string(),
                 "r6/scripts".to_string(),
+                "red4ext/plugins".to_string(),
+                "mods".to_string(),
             ],
             supports_load_order: true,
         }
