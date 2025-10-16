@@ -214,6 +214,263 @@ fn remove_mod(
     Ok(result_message)
 }
 
+/// Helper function to convert game name to NexusMods domain
+fn game_name_to_domain(game_name: &str) -> &str {
+    match game_name {
+        "Cyberpunk 2077" => "cyberpunk2077",
+        "The Witcher 3" => "witcher3",
+        "Skyrim" => "skyrim",
+        "Skyrim Special Edition" => "skyrimspecialedition",
+        "Fallout 4" => "fallout4",
+        "Baldur's Gate 3" => "baldursgate3",
+        _ => "cyberpunk2077", // Default fallback
+    }
+}
+
+#[tauri::command]
+fn export_mod_profile(file_path: String, state: State<AppState>) -> Result<String, String> {
+    add_log(
+        "📦 Exporting mod profile...".to_string(),
+        "info".to_string(),
+        "export".to_string(),
+        state.clone(),
+    )?;
+
+    // Get current game name from settings
+    let game_name = {
+        let _settings = state.settings.lock().map_err(|e| e.to_string())?;
+        // For now, hardcode Cyberpunk 2077, later this will be dynamic
+        "Cyberpunk 2077".to_string()
+    };
+
+    // Export profile
+    let profile = {
+        let manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+        manager.export_profile(&game_name)?
+    };
+
+    // Write to file
+    let json = serde_json::to_string_pretty(&profile)
+        .map_err(|e| format!("Failed to serialize profile: {}", e))?;
+
+    std::fs::write(&file_path, json).map_err(|e| format!("Failed to write profile file: {}", e))?;
+
+    let message = format!("✅ Exported {} mods to profile file", profile.mods.len());
+
+    add_log(
+        message.clone(),
+        "success".to_string(),
+        "export".to_string(),
+        state.clone(),
+    )?;
+
+    Ok(message)
+}
+
+#[tauri::command]
+async fn import_mod_profile(
+    file_path: String,
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    add_log(
+        "📥 Importing mod profile...".to_string(),
+        "info".to_string(),
+        "import".to_string(),
+        state.clone(),
+    )?;
+
+    // Read and parse profile file
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read profile file: {}", e))?;
+
+    let profile: mod_manager::ModProfile = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse profile file: {}", e))?;
+
+    add_log(
+        format!("📋 Profile contains {} mods", profile.mods.len()),
+        "info".to_string(),
+        "import".to_string(),
+        state.clone(),
+    )?;
+
+    // Extract game name before moving profile
+    let game_name = profile.game.clone();
+
+    // Import profile - this registers existing mods and returns mods to download
+    let (registered_mods, to_download_mods) = {
+        let mut manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+        manager.import_profile(profile)?
+    };
+
+    add_log(
+        format!(
+            "✅ Registered {} existing mods, {} mods need to be downloaded",
+            registered_mods.len(),
+            to_download_mods.len()
+        ),
+        "info".to_string(),
+        "import".to_string(),
+        state.clone(),
+    )?;
+
+    // Emit event to refresh mod list
+    if let Some(window) = app.get_webview_window("main") {
+        window.emit("mods-updated", ()).ok();
+    }
+
+    // Download missing mods
+    let mut downloaded_count = 0;
+    let mut failed_mods = Vec::new();
+    
+    if !to_download_mods.is_empty() {
+        // Get API key from settings
+        let api_key = {
+            let settings_guard = state.settings.lock().map_err(|e| e.to_string())?;
+            settings_guard.get_settings().nexusmods_api_key.clone()
+        };
+
+        if api_key.is_empty() {
+            add_log(
+                format!(
+                    "⚠️  {} mods need to be downloaded, but no NexusMods API key is configured.",
+                    to_download_mods.len()
+                ),
+                "warning".to_string(),
+                "import".to_string(),
+                state.clone(),
+            )?;
+            add_log(
+                "� Please add your NexusMods API key in Settings to enable automatic downloads.".to_string(),
+                "info".to_string(),
+                "import".to_string(),
+                state.clone(),
+            )?;
+            
+            for mod_entry in &to_download_mods {
+                add_log(
+                    format!("⚠️  Mod '{}' needs manual download from NexusMods", mod_entry.name),
+                    "warning".to_string(),
+                    "import".to_string(),
+                    state.clone(),
+                )?;
+            }
+        } else {
+            add_log(
+                format!(
+                    "�📥 Starting download of {} missing mods...",
+                    to_download_mods.len()
+                ),
+                "info".to_string(),
+                "import".to_string(),
+                state.clone(),
+            )?;
+
+            let game_domain = game_name_to_domain(&game_name);
+
+            for (index, mod_entry) in to_download_mods.iter().enumerate() {
+                add_log(
+                    format!(
+                        "📥 Downloading mod {}/{}: {}",
+                        index + 1,
+                        to_download_mods.len(),
+                        mod_entry.name
+                    ),
+                    "info".to_string(),
+                    "import".to_string(),
+                    state.clone(),
+                )?;
+
+                // Get download URL from NexusMods API
+                match nexusmods_api::get_download_url(
+                    game_domain,
+                    &mod_entry.mod_id,
+                    &mod_entry.file_id,
+                    &api_key,
+                )
+                .await
+                {
+                    Ok(download_url) => {
+                        // Install the mod using the download URL
+                        let install_params = ModInstallParams {
+                            mod_name: mod_entry.name.clone(),
+                            mod_version: mod_entry.version.clone(),
+                            mod_author: mod_entry.author.clone().unwrap_or_default(),
+                            mod_id: mod_entry.mod_id.clone(),
+                            file_id: mod_entry.file_id.clone(),
+                            download_url,
+                        };
+
+                        match install_mod_from_nxm(install_params, state.clone(), app.clone()).await
+                        {
+                            Ok(_) => {
+                                add_log(
+                                    format!("✅ Successfully installed '{}'", mod_entry.name),
+                                    "info".to_string(),
+                                    "import".to_string(),
+                                    state.clone(),
+                                )?;
+                                downloaded_count += 1;
+                            }
+                            Err(e) => {
+                                add_log(
+                                    format!("❌ Failed to install '{}': {}", mod_entry.name, e),
+                                    "error".to_string(),
+                                    "import".to_string(),
+                                    state.clone(),
+                                )?;
+                                failed_mods.push(mod_entry.name.clone());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        add_log(
+                            format!(
+                                "❌ Failed to get download URL for '{}': {}",
+                                mod_entry.name, e
+                            ),
+                            "error".to_string(),
+                            "import".to_string(),
+                            state.clone(),
+                        )?;
+                        failed_mods.push(mod_entry.name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    let summary = if !failed_mods.is_empty() {
+        format!(
+            "⚠️  Import complete with warnings! Registered {} mods, downloaded {} mods, {} failed\n\nFailed mods: {}",
+            registered_mods.len(),
+            downloaded_count,
+            failed_mods.len(),
+            failed_mods.join(", ")
+        )
+    } else {
+        format!(
+            "✅ Import complete! Registered {} mods, downloaded {} mods",
+            registered_mods.len(),
+            downloaded_count
+        )
+    };
+
+    add_log(
+        summary.clone(),
+        "success".to_string(),
+        "import".to_string(),
+        state.clone(),
+    )?;
+
+    // Final refresh
+    if let Some(window) = app.get_webview_window("main") {
+        window.emit("mods-updated", ()).ok();
+    }
+
+    Ok(summary)
+}
+
 #[tauri::command]
 fn get_settings(state: State<AppState>) -> Result<Settings, String> {
     let settings = state.settings.lock().map_err(|e| e.to_string())?;
@@ -3339,7 +3596,9 @@ fn main() {
             test_nxm_event,
             check_and_run_first_setup,
             install_mod_from_nxm,
-            clean_temp_files
+            clean_temp_files,
+            export_mod_profile,
+            import_mod_profile
         ])
         .setup(|app| {
             // Clean up orphaned temporary files from previous sessions

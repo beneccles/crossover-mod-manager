@@ -26,7 +26,34 @@
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]
-      }
+      },
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Main application permissions",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "dialog:allow-message",
+            "dialog:allow-ask",
+            "dialog:allow-confirm",
+            "fs:allow-read-text-file",
+            "fs:allow-write-text-file",
+            "fs:allow-read-file",
+            "fs:allow-write-file",
+            "fs:allow-read-dir",
+            "fs:allow-exists",
+            "fs:allow-remove",
+            "fs:allow-mkdir",
+            "fs:allow-copy-file",
+            "http:default",
+            "shell:allow-open",
+            "deep-link:default"
+          ]
+        }
+      ]
     }
   },
   "bundle": {

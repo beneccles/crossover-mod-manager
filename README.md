@@ -170,18 +170,43 @@ The built application will be available in `src-tauri/target/release/bundle/`.
 
 1. Launch the application
 2. Go to Settings tab
-3. Select your Cyberpunk 2077 installation directory in Crossover
+3. **Configure NexusMods API Key** (required for downloading mods):
+   - Visit [NexusMods API Key Settings](https://www.nexusmods.com/users/myaccount?tab=api%20access)
+   - Log in to your NexusMods account (create one if you don't have it)
+   - Scroll down to "Personal API Keys"
+   - Click "Generate API Key"
+   - Give it a name (e.g., "Crossover Mod Manager")
+   - Copy the generated API key
+   - Paste it into the "NexusMods API Key" field in the app's Settings tab
+   - Click "Save Settings"
+4. **Select your Cyberpunk 2077 installation directory** in Crossover
+   - Click "Browse" or enter the path manually
    - Example: `/Users/username/Library/Application Support/CrossOver/Bottles/[BottleName]/drive_c/Program Files/Cyberpunk 2077/`
+   - Click "Save Settings"
+
+**Important Notes:**
+
+- Your API key is stored locally on your Mac and never shared with anyone except NexusMods
+- Premium NexusMods members get faster download speeds
+- Free accounts work but may have slower downloads and require manual download button clicks
 
 ### Installing Mods
 
-1. Visit NexusMods and find a mod you want to install
-2. Click "Download with Mod Manager" (requires NexusMods account)
-3. The application will automatically:
-   - Download the mod archive
+**Prerequisites:**
+
+- NexusMods API key configured in Settings (see First-Time Setup above)
+- Game path configured in Settings
+
+**Steps:**
+
+1. Visit [NexusMods Cyberpunk 2077](https://www.nexusmods.com/cyberpunk2077) and find a mod you want to install
+2. Click "Download with Mod Manager" (the nxm:// link)
+3. Your browser may ask for permission to open the link with Crossover Mod Manager - click "Allow"
+4. The application will automatically:
+   - Download the mod archive from NexusMods
    - Extract the contents
    - Install files to the appropriate game directories
-   - Track all installed files
+   - Track all installed files for safe removal
 
 ### Managing Mods
 
@@ -271,6 +296,72 @@ All mod information is stored in `~/.crossover-mod-manager/`:
 
 - `mods.json`: Database of installed mods and their files
 - `settings.json`: Application settings
+
+## Troubleshooting
+
+### NexusMods API Key Issues
+
+**Problem: Downloads fail with "Invalid API Key" or "Unauthorized"**
+
+Solutions:
+
+1. Verify your API key is correctly copied from [NexusMods API Settings](https://www.nexusmods.com/users/myaccount?tab=api%20access)
+   - Make sure there are no extra spaces or characters
+   - The key should be a long alphanumeric string
+2. Check that your NexusMods account is active and in good standing
+3. Try generating a new API key and updating it in Settings
+4. Click "Save Settings" after entering the key
+
+**Problem: "Download with Mod Manager" doesn't open the app**
+
+Solutions:
+
+1. Make sure you've launched the app at least once
+2. Check that nxm:// protocol handler is registered:
+   - Try clicking a mod manager download link again
+   - Your browser should prompt you to open with Crossover Mod Manager
+   - Select "Always allow" for future downloads
+3. If still not working, try reinstalling the app
+
+**Problem: Download speeds are very slow**
+
+This is normal for free NexusMods accounts. Solutions:
+
+- Consider [NexusMods Premium](https://www.nexusmods.com/register/premium) for faster downloads
+- Free accounts are limited to ~1-2 MB/s
+- Premium accounts get full speed downloads
+
+### Game Path Issues
+
+**Problem: "Game directory not found" error**
+
+Solutions:
+
+1. Verify your game path in Settings points to the correct location
+2. The path should end with the game folder, e.g., `.../Cyberpunk 2077/`
+3. Make sure CrossOver bottle is not moved or renamed
+4. Try browsing to the path using the "Browse" button instead of typing manually
+
+### Mod Installation Issues
+
+**Problem: Mod installs but doesn't work in-game**
+
+Solutions:
+
+1. Verify the mod is compatible with your game version
+2. Check if the mod requires other mods (dependencies)
+3. Some mods need to be loaded in a specific order
+4. Restart the game after installing mods
+5. Check mod instructions on NexusMods for special requirements
+
+**Problem: Can't remove a mod - files are locked**
+
+Solutions:
+
+1. Make sure the game is closed
+2. Close CrossOver completely
+3. Try removing the mod again
+4. If still failing, the files can be manually deleted from your game directory
 
 ## Contributing
 

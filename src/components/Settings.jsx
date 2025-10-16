@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import {
+  open as openDialog,
+  save as saveDialog,
+  ask as askDialog,
+} from "@tauri-apps/plugin-dialog";
 import "./Settings.css";
 
 function Settings() {
@@ -187,6 +191,90 @@ function Settings() {
     }
   };
 
+  const exportModProfile = async () => {
+    try {
+      console.log("Opening save dialog...");
+
+      // Use save dialog to select export location
+      const filePath = await saveDialog({
+        title: "Export Mod Profile",
+        defaultPath: `cmm-profile-${
+          new Date().toISOString().split("T")[0]
+        }.json`,
+        filters: [
+          {
+            name: "JSON",
+            extensions: ["json"],
+          },
+        ],
+      });
+
+      console.log("Save dialog returned:", filePath);
+
+      if (!filePath) {
+        console.log("User cancelled or no path selected");
+        return; // User cancelled
+      }
+
+      console.log("Calling export_mod_profile with path:", filePath);
+
+      const result = await invoke("export_mod_profile", {
+        filePath: filePath,
+      });
+
+      console.log("Export result:", result);
+      alert(`✓ ${result}\n\nFile saved to: ${filePath}`);
+    } catch (error) {
+      console.error("Failed to export mod profile:", error);
+      alert(`❌ Export failed: ${error}`);
+    }
+  };
+
+  const importModProfile = async () => {
+    try {
+      // Use open dialog to select import file
+      const selected = await openDialog({
+        title: "Import Mod Profile",
+        multiple: false,
+        filters: [
+          {
+            name: "JSON",
+            extensions: ["json"],
+          },
+        ],
+      });
+
+      if (!selected) {
+        return; // User cancelled
+      }
+
+      // Confirm with user using Tauri's dialog
+      const confirmed = await askDialog(
+        "This will:\n" +
+          "1. Register any mods whose files already exist\n" +
+          "2. Automatically download and install missing mods\n\n" +
+          "Continue?",
+        {
+          title: "Import Mod Profile",
+          kind: "info",
+        }
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const result = await invoke("import_mod_profile", {
+        filePath: selected,
+      });
+
+      alert(`✓ ${result}\n\nCheck the Logs tab for details.`);
+    } catch (error) {
+      console.error("Failed to import mod profile:", error);
+      alert(`❌ Import failed: ${error}`);
+    }
+  };
+
   return (
     <div className="settings">
       <div className="settings-content">
@@ -274,6 +362,31 @@ function Settings() {
                 NexusMods API settings
               </a>
               . Required for downloading mods via NXM links.
+            </p>
+          </div>
+        </div>
+
+        <div className="setting-section">
+          <h3>� Mod Profile Export & Import</h3>
+          <p>Smart backup and restore for your mod setup</p>
+          <div className="setting-row">
+            <button onClick={exportModProfile} className="test-nxm-button">
+              📤 Export Mod Profile
+            </button>
+            <p className="help-text">
+              Export a complete profile of your installed mods including file
+              paths and NexusMods IDs. Use this to back up your mod setup or
+              transfer it to another system.
+            </p>
+          </div>
+          <div className="setting-row">
+            <button onClick={importModProfile} className="test-nxm-button">
+              📥 Import Mod Profile
+            </button>
+            <p className="help-text">
+              Import a previously exported mod profile. CMM will automatically
+              register mods whose files already exist on disk. Missing mods will
+              be flagged so you can re-download them from NexusMods.
             </p>
           </div>
         </div>

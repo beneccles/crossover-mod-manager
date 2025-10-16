@@ -37,6 +37,29 @@ pub struct FileConflictInfo {
     pub is_archive: bool,
 }
 
+/// Represents a mod profile that can be exported/imported
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModProfile {
+    pub version: String, // Profile format version
+    pub created_at: String,
+    pub game: String, // Game name (e.g., "Cyberpunk 2077")
+    pub mod_manager_version: String,
+    pub mods: Vec<ModProfileEntry>,
+}
+
+/// Individual mod entry in a profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModProfileEntry {
+    pub name: String,
+    pub version: String,
+    pub author: Option<String>,
+    pub mod_id: String,  // NexusMods mod ID
+    pub file_id: String, // NexusMods file ID
+    pub description: Option<String>,
+    // Store relative file paths for verification
+    pub files: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct ModDatabase {
     mods: Vec<ModInfo>,
@@ -238,6 +261,105 @@ impl ModManager {
         self.save_database()?;
 
         Ok((mod_name, removed_files, failed_files))
+    }
+
+    /// Export all installed mods to a profile JSON file
+    pub fn export_profile(&self, game_name: &str) -> Result<ModProfile, String> {
+        let mut profile_entries = Vec::new();
+
+        for mod_info in &self.mods {
+            // Only export mods that have NexusMods IDs
+            if let (Some(mod_id), Some(file_id)) = (&mod_info.mod_id, &mod_info.file_id) {
+                profile_entries.push(ModProfileEntry {
+                    name: mod_info.name.clone(),
+                    version: mod_info.version.clone(),
+                    author: mod_info.author.clone(),
+                    mod_id: mod_id.clone(),
+                    file_id: file_id.clone(),
+                    description: mod_info.description.clone(),
+                    files: mod_info.files.clone(),
+                });
+            }
+        }
+
+        let profile = ModProfile {
+            version: "1.0".to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            game: game_name.to_string(),
+            mod_manager_version: env!("CARGO_PKG_VERSION").to_string(),
+            mods: profile_entries,
+        };
+
+        Ok(profile)
+    }
+
+    /// Verify if mod files exist on disk
+    pub fn verify_mod_files(&self, files: &[String]) -> (bool, Vec<String>, Vec<String>) {
+        let mut existing_files = Vec::new();
+        let mut missing_files = Vec::new();
+
+        for file_path in files {
+            if Path::new(file_path).exists() {
+                existing_files.push(file_path.clone());
+            } else {
+                missing_files.push(file_path.clone());
+            }
+        }
+
+        let all_exist = missing_files.is_empty();
+        (all_exist, existing_files, missing_files)
+    }
+
+    /// Import a mod profile and register existing mods or mark for re-download
+    pub fn import_profile(
+        &mut self,
+        profile: ModProfile,
+    ) -> Result<(Vec<ModProfileEntry>, Vec<ModProfileEntry>), String> {
+        let mut registered_mods = Vec::new();
+        let mut to_download_mods = Vec::new();
+
+        for profile_entry in profile.mods {
+            // Check if this mod is already installed
+            if let Some(_existing) =
+                self.find_existing_mod(&profile_entry.mod_id, &profile_entry.file_id)
+            {
+                // Mod already exists, skip it
+                registered_mods.push(profile_entry);
+                continue;
+            }
+
+            // Verify if files exist on disk
+            let (all_exist, existing_files, _missing_files) =
+                self.verify_mod_files(&profile_entry.files);
+
+            if all_exist && !existing_files.is_empty() {
+                // Files exist, register the mod without downloading
+                let mod_info = ModInfo {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    name: profile_entry.name.clone(),
+                    version: profile_entry.version.clone(),
+                    author: profile_entry.author.clone(),
+                    description: profile_entry.description.clone(),
+                    mod_id: Some(profile_entry.mod_id.clone()),
+                    file_id: Some(profile_entry.file_id.clone()),
+                    enabled: true,
+                    files: existing_files,
+                    file_conflicts: HashMap::new(),
+                    installed_at: Some(chrono::Utc::now().to_rfc3339()),
+                };
+
+                self.add_mod(mod_info);
+                registered_mods.push(profile_entry);
+            } else {
+                // Files don't exist, add to download queue
+                to_download_mods.push(profile_entry);
+            }
+        }
+
+        // Save the database with newly registered mods
+        self.save_database()?;
+
+        Ok((registered_mods, to_download_mods))
     }
 
     #[allow(dead_code)]
