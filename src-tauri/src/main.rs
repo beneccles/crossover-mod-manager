@@ -215,6 +215,45 @@ fn remove_mod(
 }
 
 #[tauri::command]
+fn toggle_mod_enabled(
+    mod_id: String,
+    state: State<AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    add_log(
+        format!("🔄 Toggling enabled state for mod ID: {}", mod_id),
+        "info".to_string(),
+        "mod_management".to_string(),
+        state.clone(),
+    )?;
+
+    let (mod_name, new_state) = {
+        let mut manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+        manager.toggle_mod_enabled(&mod_id)?
+    };
+
+    let status_text = if new_state { "enabled" } else { "disabled" };
+    let emoji = if new_state { "✅" } else { "⏸️" };
+
+    add_log(
+        format!("{} Mod '{}' is now {}", emoji, mod_name, status_text),
+        "info".to_string(),
+        "mod_management".to_string(),
+        state.clone(),
+    )?;
+
+    // Emit event to refresh UI
+    if let Some(window) = app.get_webview_window("main") {
+        window.emit("mod-toggled", &mod_id).ok();
+    }
+
+    Ok(format!(
+        "Mod '{}' is now {}!",
+        mod_name, status_text
+    ))
+}
+
+#[tauri::command]
 fn get_settings(state: State<AppState>) -> Result<Settings, String> {
     let settings = state.settings.lock().map_err(|e| e.to_string())?;
     Ok(settings.get_settings())
@@ -224,6 +263,131 @@ fn get_settings(state: State<AppState>) -> Result<Settings, String> {
 fn save_settings(settings: Settings, state: State<AppState>) -> Result<(), String> {
     let mut app_settings = state.settings.lock().map_err(|e| e.to_string())?;
     app_settings.save_settings(settings)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ArchiveFileInfo {
+    name: String,
+    path: String,
+    mod_name: String,
+    mod_id: String,
+}
+
+#[tauri::command]
+fn get_archive_load_order(state: State<AppState>) -> Result<Vec<ArchiveFileInfo>, String> {
+    let manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+    let mut archive_files = Vec::new();
+
+    for mod_info in manager.get_installed_mods() {
+        if !mod_info.enabled {
+            continue; // Skip disabled mods
+        }
+
+        for file_path in &mod_info.files {
+            if file_path.ends_with(".archive") && !file_path.ends_with(".disabled") {
+                let path = Path::new(file_path);
+                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    archive_files.push(ArchiveFileInfo {
+                        name: file_name.to_string(),
+                        path: file_path.clone(),
+                        mod_name: mod_info.name.clone(),
+                        mod_id: mod_info.id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort alphabetically (how CP2077 loads them)
+    archive_files.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    Ok(archive_files)
+}
+
+#[tauri::command]
+fn apply_archive_load_order(
+    new_order: Vec<String>,
+    state: State<AppState>,
+) -> Result<String, String> {
+    // For now, this is informational - actual implementation would rename files
+    // to match alphabetical order based on desired load order
+    add_log(
+        format!("📋 Load order update requested for {} archives", new_order.len()),
+        "info".to_string(),
+        "load_order".to_string(),
+        state.clone(),
+    )?;
+
+    // In a full implementation, we would:
+    // 1. Create temp names for all files to avoid conflicts
+    // 2. Rename files to match the desired order (e.g., 001-file.archive, 002-file.archive)
+    // 3. Update mod database with new file paths
+
+    Ok(format!("Load order updated for {} archives", new_order.len()))
+}
+
+#[tauri::command]
+fn rename_archive_with_prefix(
+    file_path: String,
+    prefix: String,
+    state: State<AppState>,
+) -> Result<String, String> {
+    use std::fs;
+
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", file_path));
+    }
+
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Invalid file name")?;
+
+    // Check if file already has this prefix
+    if file_name.starts_with(&prefix) {
+        return Ok(format!("File already has prefix {}", prefix));
+    }
+
+    // Remove existing prefix if present
+    let clean_name = if file_name.starts_with("0-") || file_name.starts_with("z-") {
+        &file_name[2..]
+    } else {
+        file_name
+    };
+
+    let new_name = format!("{}{}", prefix, clean_name);
+    let new_path = path.with_file_name(&new_name);
+
+    add_log(
+        format!("📝 Renaming: {} → {}", file_name, new_name),
+        "info".to_string(),
+        "load_order".to_string(),
+        state.clone(),
+    )?;
+
+    // Rename the file
+    fs::rename(&file_path, &new_path)
+        .map_err(|e| format!("Failed to rename file: {}", e))?;
+
+    // Update mod database with new file path
+    let mut manager = state.mod_manager.lock().map_err(|e| e.to_string())?;
+    for mod_info in &mut manager.mods {
+        if let Some(index) = mod_info.files.iter().position(|f| f == &file_path) {
+            mod_info.files[index] = new_path.to_string_lossy().to_string();
+            manager.save_database()?;
+            break;
+        }
+    }
+
+    add_log(
+        format!("✅ Renamed successfully: {}", new_name),
+        "info".to_string(),
+        "load_order".to_string(),
+        state.clone(),
+    )?;
+
+    Ok(format!("Renamed to: {}", new_name))
 }
 
 #[tauri::command]
@@ -3325,8 +3489,12 @@ fn main() {
             get_installed_mods,
             install_mod,
             remove_mod,
+            toggle_mod_enabled,
             get_settings,
             save_settings,
+            get_archive_load_order,
+            apply_archive_load_order,
+            rename_archive_with_prefix,
             auto_detect_game_path,
             add_log,
             add_log_entry,

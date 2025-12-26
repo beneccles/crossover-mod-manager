@@ -390,7 +390,7 @@ function Settings() {
           <h3>About</h3>
           <div className="setting-row">
             <p className="version-info">
-              <strong>Crossover Mod Manager</strong> v1.1.0
+              <strong>Crossover Mod Manager</strong> v0.1.0
             </p>
             <p className="help-text">
               Features: Auto-detection, NXM protocol support, comprehensive

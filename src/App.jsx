@@ -5,6 +5,7 @@ import ModList from "./components/ModList";
 import ModDetails from "./components/ModDetails";
 import Settings from "./components/Settings";
 import Logs from "./components/Logs";
+import LoadOrderManager from "./components/LoadOrderManager";
 import "./App.css";
 
 function App() {
@@ -209,6 +210,26 @@ function App() {
     }
   };
 
+  const handleToggleMod = async (modId) => {
+    setLoading(true);
+
+    try {
+      const result = await invoke("toggle_mod_enabled", { modId });
+      console.log("Mod toggled:", result);
+      await loadMods();
+      // Update selected mod if it's the one being toggled
+      if (selectedMod && selectedMod.id === modId) {
+        const updatedMod = mods.find((m) => m.id === modId);
+        setSelectedMod(updatedMod);
+      }
+    } catch (error) {
+      console.error("Failed to toggle mod:", error);
+      alert("Failed to toggle mod: " + error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -219,6 +240,12 @@ function App() {
             onClick={() => setActiveTab("mods")}
           >
             Mods
+          </button>
+          <button
+            className={activeTab === "loadorder" ? "active" : ""}
+            onClick={() => setActiveTab("loadorder")}
+          >
+            Load Order
           </button>
           <button
             className={activeTab === "logs" ? "active" : ""}
@@ -248,9 +275,12 @@ function App() {
             <ModDetails
               mod={selectedMod}
               onRemove={handleRemoveMod}
+              onToggle={handleToggleMod}
               loading={loading}
             />
           </div>
+        ) : activeTab === "loadorder" ? (
+          <LoadOrderManager />
         ) : activeTab === "logs" ? (
           <Logs />
         ) : (

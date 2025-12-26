@@ -1,6 +1,6 @@
 import './ModDetails.css'
 
-function ModDetails({ mod, onRemove, loading }) {
+function ModDetails({ mod, onRemove, onToggle, loading }) {
   if (!mod) {
     return (
       <div className="mod-details">
@@ -15,13 +15,22 @@ function ModDetails({ mod, onRemove, loading }) {
     <div className="mod-details">
       <div className="mod-details-header">
         <h2>{mod.name}</h2>
-        <button 
-          className="remove-button"
-          onClick={() => onRemove(mod.id)}
-          disabled={loading}
-        >
-          Remove Mod
-        </button>
+        <div className="mod-actions">
+          <button
+            className={`toggle-button ${mod.enabled ? 'enabled' : 'disabled'}`}
+            onClick={() => onToggle(mod.id)}
+            disabled={loading}
+          >
+            {mod.enabled ? '✓ Enabled' : '○ Disabled'}
+          </button>
+          <button
+            className="remove-button"
+            onClick={() => onRemove(mod.id)}
+            disabled={loading}
+          >
+            Remove Mod
+          </button>
+        </div>
       </div>
 
       <div className="mod-details-content">

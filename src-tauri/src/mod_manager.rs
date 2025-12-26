@@ -240,6 +240,52 @@ impl ModManager {
         Ok((mod_name, removed_files, failed_files))
     }
 
+    /// Toggle a mod's enabled/disabled state
+    /// When disabled, files are renamed with .disabled extension
+    /// When enabled, files are restored to original names
+    pub fn toggle_mod_enabled(&mut self, mod_id: &str) -> Result<(String, bool), String> {
+        let mod_index = self
+            .mods
+            .iter()
+            .position(|m| m.id == mod_id)
+            .ok_or("Mod not found")?;
+
+        let current_state = self.mods[mod_index].enabled;
+        let new_state = !current_state;
+        let mod_name = self.mods[mod_index].name.clone();
+
+        if new_state {
+            // Enable: rename .disabled files back to original names
+            let mut updated_files = Vec::new();
+            for file_path in &self.mods[mod_index].files {
+                let disabled_path = format!("{}.disabled", file_path);
+                if Path::new(&disabled_path).exists() {
+                    fs::rename(&disabled_path, file_path)
+                        .map_err(|e| format!("Failed to enable file {}: {}", file_path, e))?;
+                }
+                updated_files.push(file_path.clone());
+            }
+            self.mods[mod_index].files = updated_files;
+        } else {
+            // Disable: rename files to .disabled
+            let mut updated_files = Vec::new();
+            for file_path in &self.mods[mod_index].files {
+                let disabled_path = format!("{}.disabled", file_path);
+                if Path::new(file_path).exists() {
+                    fs::rename(file_path, &disabled_path)
+                        .map_err(|e| format!("Failed to disable file {}: {}", file_path, e))?;
+                }
+                updated_files.push(file_path.clone());
+            }
+            self.mods[mod_index].files = updated_files;
+        }
+
+        self.mods[mod_index].enabled = new_state;
+        self.save_database()?;
+
+        Ok((mod_name, new_state))
+    }
+
     #[allow(dead_code)]
     async fn download_mod(&self, url: &str) -> Result<PathBuf, String> {
         let temp_dir = std::env::temp_dir();

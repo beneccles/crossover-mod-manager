@@ -71,7 +71,7 @@ pub async fn get_download_url(
     let response = client
         .get(&url)
         .header("apikey", api_key)
-        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .header("User-Agent", "CrossoverModManager/0.1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to connect to NexusMods API: {}", e))?;
@@ -134,7 +134,7 @@ pub async fn validate_api_key(api_key: &str) -> Result<bool, String> {
     let response = client
         .get(url)
         .header("apikey", api_key)
-        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .header("User-Agent", "CrossoverModManager/0.1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to connect to NexusMods API: {}", e))?;
@@ -174,7 +174,7 @@ pub async fn get_mod_info(
     let response = client
         .get(&url)
         .header("apikey", api_key)
-        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .header("User-Agent", "CrossoverModManager/0.1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to get mod info: {}", e))?;
@@ -232,7 +232,7 @@ pub async fn get_collection_info(
     let response = client
         .get(&url)
         .header("apikey", api_key)
-        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .header("User-Agent", "CrossoverModManager/0.1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to get collection info: {}", e))?;
@@ -284,7 +284,7 @@ pub async fn get_collection_mods(
     let response = client
         .get(&url)
         .header("apikey", api_key)
-        .header("User-Agent", "CrossoverModManager/1.1.0")
+        .header("User-Agent", "CrossoverModManager/0.1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to get collection mods: {}", e))?;
