@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Default capabilities for the Crossover Mod Manager","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open"]}}
