@@ -227,6 +227,17 @@ fn save_settings(settings: Settings, state: State<AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
+fn get_crossover_bottles_path() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let bottles = home.join("Library/Application Support/CrossOver/Bottles");
+    if bottles.exists() {
+        Some(bottles.to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
 fn auto_detect_game_path() -> Result<Option<String>, String> {
     // Common paths where Cyberpunk 2077 might be installed via CrossOver
     let potential_paths = vec![
@@ -3327,6 +3338,7 @@ fn main() {
             remove_mod,
             get_settings,
             save_settings,
+            get_crossover_bottles_path,
             auto_detect_game_path,
             add_log,
             add_log_entry,

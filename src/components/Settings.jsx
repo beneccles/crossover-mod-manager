@@ -12,7 +12,7 @@ function Settings() {
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [detectionResult, setDetectionResult] = useState("");
   const [customNxmUrl, setCustomNxmUrl] = useState(
-    "nxm://cyberpunk2077/mods/107/files/123169?key=test&expires=1760073990&user_id=260682775"
+    "nxm://cyberpunk2077/mods/107/files/123169?key=test&expires=1760073990&user_id=260682775",
   );
 
   useEffect(() => {
@@ -32,10 +32,12 @@ function Settings() {
 
   const selectGamePath = async () => {
     try {
+      const crossoverBottles = await invoke("get_crossover_bottles_path");
       const selected = await openDialog({
         directory: true,
         multiple: false,
         title: "Select Game Installation Directory",
+        defaultPath: crossoverBottles || undefined,
       });
 
       if (selected) {
@@ -73,7 +75,7 @@ function Settings() {
         setTimeout(() => setDetectionResult(""), 5000);
       } else {
         setDetectionResult(
-          "⚠ Could not automatically detect game installation. Please select manually."
+          "⚠ Could not automatically detect game installation. Please select manually.",
         );
         setTimeout(() => setDetectionResult(""), 5000);
       }
@@ -149,7 +151,7 @@ function Settings() {
         download_url: testUrl,
       });
       alert(
-        `Test download completed! File saved to: ${filePath}\nCheck the Logs tab.`
+        `Test download completed! File saved to: ${filePath}\nCheck the Logs tab.`,
       );
     } catch (error) {
       console.error("Failed to test download:", error);
@@ -221,8 +223,8 @@ function Settings() {
                   detectionResult.includes("✓")
                     ? "success"
                     : detectionResult.includes("⚠")
-                    ? "warning"
-                    : "error"
+                      ? "warning"
+                      : "error"
                 }`}
               >
                 {detectionResult}
